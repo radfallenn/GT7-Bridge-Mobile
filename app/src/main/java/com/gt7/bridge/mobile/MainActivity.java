@@ -3,6 +3,9 @@ package com.gt7.bridge.mobile;
 import android.app.Activity;
 import android.os.Bundle;
 import android.graphics.Color;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.*;
 import java.io.*;
 import java.net.*;
@@ -18,24 +21,63 @@ public class MainActivity extends Activity {
     private final Telemetry t = new Telemetry();
     private TextView status, values;
     private EditText ps5Ip;
+    private WebView webView;
 
     public void onCreate(Bundle b) {
         super.onCreate(b);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(36,36,36,36);
+        root.setPadding(24,24,24,24);
         root.setBackgroundColor(Color.rgb(245,245,245));
-        TextView title = new TextView(this); title.setText("GT7 Bridge Mobile v1.1"); title.setTextSize(24); title.setTextColor(Color.BLACK); root.addView(title);
+
+        TextView title = new TextView(this); title.setText("GT7 Bridge Mobile v1.2"); title.setTextSize(22); title.setTextColor(Color.BLACK); root.addView(title);
         ps5Ip = new EditText(this); ps5Ip.setHint("IP do PS5"); ps5Ip.setSingleLine(true); root.addView(ps5Ip);
-        Button start = new Button(this); start.setText("Iniciar Bridge"); root.addView(start);
-        Button stop = new Button(this); stop.setText("Parar"); root.addView(stop);
-        status = new TextView(this); status.setText("Status: parado"); status.setTextSize(18); root.addView(status);
-        values = new TextView(this); values.setTextSize(16); values.setTextColor(Color.DKGRAY); root.addView(values);
+
+        LinearLayout buttons = new LinearLayout(this); buttons.setOrientation(LinearLayout.HORIZONTAL);
+        Button start = new Button(this); start.setText("Iniciar Bridge"); buttons.addView(start, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        Button stop = new Button(this); stop.setText("Parar"); buttons.addView(stop, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        root.addView(buttons);
+
+        Button openGt7 = new Button(this); openGt7.setText("Abrir gt7.online no app"); root.addView(openGt7);
+        status = new TextView(this); status.setText("Status: parado"); status.setTextSize(15); root.addView(status);
+        values = new TextView(this); values.setTextSize(13); values.setTextColor(Color.DKGRAY); root.addView(values);
+
+        webView = new WebView(this);
+        webView.setVisibility(WebView.GONE);
+        WebSettings ws = webView.getSettings();
+        ws.setJavaScriptEnabled(true);
+        ws.setDomStorageEnabled(true);
+        ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        webView.setWebViewClient(new WebViewClient(){
+            @Override public void onPageFinished(WebView view, String url){ injectBridgeHints(); }
+        });
+        root.addView(webView, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
+
         start.setOnClickListener(v -> startBridge());
         stop.setOnClickListener(v -> stopBridge());
+        openGt7.setOnClickListener(v -> openGt7Online());
         new Thread(this::httpServer).start();
         new Timer().scheduleAtFixedRate(new TimerTask(){ public void run(){ runOnUiThread(() -> values.setText(t.toPretty())); }}, 500, 500);
+    }
+
+    private void openGt7Online(){
+        if(!running.get()) startBridge();
+        webView.setVisibility(WebView.VISIBLE);
+        status.setText("Status: abrindo gt7.online dentro do APK");
+        webView.loadUrl("https://gt7.online");
+    }
+
+    private void injectBridgeHints(){
+        String js = "try{"+
+            "localStorage.setItem('gt7TelemetryMode','mobile-apk');"+
+            "localStorage.setItem('gt7BridgeHttpUrl','http://127.0.0.1:8787/api/fields');"+
+            "localStorage.setItem('gt7BridgeStatusUrl','http://127.0.0.1:8787/api/status');"+
+            "window.GT7_BRIDGE_MODE='mobile-apk';"+
+            "window.GT7_BRIDGE_URL='http://127.0.0.1:8787/api/fields';"+
+            "window.dispatchEvent(new CustomEvent('gt7-bridge-mobile-ready',{detail:{url:'http://127.0.0.1:8787/api/fields'}}));"+
+            "}catch(e){}";
+        webView.evaluateJavascript(js, null);
     }
 
     private void startBridge() {
