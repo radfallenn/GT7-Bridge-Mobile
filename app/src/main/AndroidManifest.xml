@@ -3,17 +3,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
-    <application android:theme="@style/AppTheme" android:label="GT7 Online Mobile" android:usesCleartextTraffic="true">
+    <application android:theme="@style/AppTheme" android:label="GT7 Bridge Mobile" android:usesCleartextTraffic="true">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="gt7bridge" android:host="open" />
             </intent-filter>
         </activity>
     </application>
