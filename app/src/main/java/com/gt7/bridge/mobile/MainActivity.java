@@ -33,7 +33,7 @@ public class MainActivity extends Activity {
         root.setPadding(24,24,24,24);
         root.setBackgroundColor(Color.rgb(245,245,245));
 
-        TextView title = new TextView(this); title.setText("GT7 Bridge Mobile v1.3"); title.setTextSize(22); title.setTextColor(Color.BLACK); root.addView(title);
+        TextView title = new TextView(this); title.setText("GT7 Bridge Mobile v1.4"); title.setTextSize(22); title.setTextColor(Color.BLACK); root.addView(title);
         ps5Ip = new EditText(this); ps5Ip.setHint("IP do PS5"); ps5Ip.setSingleLine(true); root.addView(ps5Ip);
 
         LinearLayout buttons = new LinearLayout(this); buttons.setOrientation(LinearLayout.HORIZONTAL);
@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
         stop.setOnClickListener(v -> stopBridge());
         openGt7.setOnClickListener(v -> openGt7Online());
         new Thread(this::httpServer).start();
-        new Timer().scheduleAtFixedRate(new TimerTask(){ public void run(){ runOnUiThread(() -> values.setText(t.toPretty())); }}, 500, 500);
+        new Timer().scheduleAtFixedRate(new TimerTask(){ public void run(){ runOnUiThread(() -> { values.setText(t.toPretty()); pushTelemetryToWebView(); }); }}, 500, 500);
     }
 
     private WebResourceResponse localBridgeResponse(String url){
@@ -96,15 +96,36 @@ public class MainActivity extends Activity {
 
     private void injectBridgeHints(){
         String js = "try{"+
-            "localStorage.setItem('gt7TelemetryMode','mobile-apk');"+
+            "localStorage.setItem('gt7TelemetryMode','mobile-apk-push');"+
             "localStorage.setItem('gt7BridgeHttpUrl','http://127.0.0.1:8787/api/fields');"+
             "localStorage.setItem('gt7BridgeStatusUrl','http://127.0.0.1:8787/api/status');"+
-            "window.GT7_BRIDGE_MODE='mobile-apk';"+
+            "window.GT7_BRIDGE_MODE='mobile-apk-push';"+
             "window.GT7_BRIDGE_URL='http://127.0.0.1:8787/api/fields';"+
+            "window.__gt7MobileBridgeActive=true;"+
+            "window.__gt7MobileTelemetrySource='android-webview-push';"+
             "const originalFetch=window.fetch.bind(window);"+
             "window.fetch=function(input,init){const url=(typeof input==='string'?input:(input&&input.url)||''); if(url.includes('127.0.0.1:8787')||url.includes('localhost:8787')){let data=url.includes('/api/status')?GT7AndroidBridge.getStatus():(url.includes('/api/map')?GT7AndroidBridge.getMap():GT7AndroidBridge.getFields()); return Promise.resolve(new Response(data,{status:200,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'}}));} return originalFetch(input,init);};"+
-            "window.dispatchEvent(new CustomEvent('gt7-bridge-mobile-ready',{detail:{url:'http://127.0.0.1:8787/api/fields',mode:'mobile-apk'}}));"+
+            "window.dispatchEvent(new CustomEvent('gt7-bridge-mobile-ready',{detail:{url:'http://127.0.0.1:8787/api/fields',mode:'mobile-apk-push'}}));"+
             "}catch(e){console.log('GT7 Bridge inject error',e)}";
+        webView.evaluateJavascript(js, null);
+        pushTelemetryToWebView();
+    }
+
+    private void pushTelemetryToWebView(){
+        if(webView == null || webView.getVisibility() != WebView.VISIBLE) return;
+        String payload;
+        synchronized(t){ payload = t.json(); }
+        String js = "try{"+
+            "var d="+payload+";"+
+            "window.__gt7MobileBridgeActive=true;"+
+            "window.__gt7MobileTelemetry=d;"+
+            "window.__gt7LastTelemetry=d;"+
+            "try{localStorage.setItem('gt7LastMobileTelemetry',JSON.stringify(d));}catch(e){}"+
+            "window.dispatchEvent(new CustomEvent('gt7-mobile-telemetry',{detail:d}));"+
+            "window.dispatchEvent(new CustomEvent('gt7-telemetry',{detail:d}));"+
+            "window.dispatchEvent(new CustomEvent('gt7-telemetry-update',{detail:d}));"+
+            "if(typeof window.onGT7MobileTelemetry==='function'){window.onGT7MobileTelemetry(d);}"+
+            "}catch(e){console.log('GT7 Bridge push error',e)}";
         webView.evaluateJavascript(js, null);
     }
 
@@ -112,7 +133,7 @@ public class MainActivity extends Activity {
         if (running.get()) return;
         synchronized(t){ t.reset(); }
         running.set(true);
-        status.setText("Status: bridge ativo em http://127.0.0.1:8787/api/fields");
+        status.setText("Status: bridge ativo em modo push para gt7.online");
         new Thread(this::udpReceiver).start();
         new Thread(this::heartbeat).start();
     }
