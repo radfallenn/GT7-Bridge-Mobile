@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.rgb(245,245,245));
 
         TextView title = new TextView(this);
-        title.setText("GT7 Bridge Mobile v1.4.3");
+        title.setText("GT7 Bridge Mobile v1.4.4");
         title.setTextSize(22);
         title.setTextColor(Color.BLACK);
         root.addView(title);
@@ -77,9 +77,13 @@ public class MainActivity extends Activity {
 
         webView = new WebView(this);
         webView.setVisibility(WebView.GONE);
+        webView.setBackgroundColor(Color.WHITE);
         WebSettings ws = webView.getSettings();
         ws.setJavaScriptEnabled(true);
         ws.setDomStorageEnabled(true);
+        ws.setDatabaseEnabled(true);
+        ws.setLoadWithOverviewMode(true);
+        ws.setUseWideViewPort(true);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webView.addJavascriptInterface(new BridgeJs(), "GT7AndroidBridge");
         webView.setWebViewClient(new WebViewClient(){
@@ -120,7 +124,7 @@ public class MainActivity extends Activity {
         if(!running.get()) startBridge();
         webView.setVisibility(WebView.VISIBLE);
         status.setText("Status: abrindo telemetria no app");
-        webView.loadUrl("https://gt7.online/?bridge=mobile-apk-push&tab=telemetry&fullscreen=1&showAllTelemetry=1");
+        webView.loadUrl("https://gt7.online");
     }
 
     private void saveSession(String reason){
@@ -260,13 +264,14 @@ public class MainActivity extends Activity {
                 "localStorage.setItem('gt7BridgeEntryUrl','http://127.0.0.1:8787/api/entry');"+
                 "localStorage.setItem('gt7OpenTelemetryOnStart','true');"+
                 "localStorage.setItem('gt7FullscreenPreferred','true');"+
+                "localStorage.setItem('gt7ShowAllTelemetry','true');"+
                 "window.GT7_BRIDGE_MODE='mobile-apk-push';"+
                 "window.GT7_BRIDGE_URL='http://127.0.0.1:8787/api/fields';"+
                 "window.__gt7MobileBridgeActive=true;"+
                 "const originalFetch=window.fetch.bind(window);"+
                 "window.fetch=function(input,init){const url=(typeof input==='string'?input:(input&&input.url)||'');if(url.includes('127.0.0.1:8787')||url.includes('localhost:8787')){let data=url.includes('/api/status')?GT7AndroidBridge.getStatus():(url.includes('/api/map')?GT7AndroidBridge.getMap():(url.includes('/api/entry')?GT7AndroidBridge.getEntry():GT7AndroidBridge.getFields()));return Promise.resolve(new Response(data,{status:200,headers:{'Content-Type':'application/json'}}));}return originalFetch(input,init);};"+
                 "window.dispatchEvent(new CustomEvent('gt7-bridge-mobile-ready',{detail:{mode:'mobile-apk-push',openTab:'telemetry',fullscreen:true,showAllTelemetry:true}}));"+
-                "setTimeout(function(){window.dispatchEvent(new CustomEvent('gt7-open-telemetry-fullscreen',{detail:{fullscreen:true,showAllTelemetry:true}}));},600);"+
+                "setTimeout(function(){try{window.dispatchEvent(new CustomEvent('gt7-open-telemetry-fullscreen',{detail:{fullscreen:true,showAllTelemetry:true}}));}catch(e){}},1200);"+
                 "}catch(e){console.log('GT7 Bridge inject error',e)}";
         webView.evaluateJavascript(js, null);
         pushTelemetry();
@@ -296,7 +301,7 @@ public class MainActivity extends Activity {
         ArrayList<float[]> map=new ArrayList<>();
         void resetSession(){connected=false;valid=false;updatedAt=0;startMs=0;raceMs=0;lastPacketSize=0;gear=0;throttle=0;brake=0;laps=0;best=-1;last=-1;current=-1;speed=0;maxSpeed=0;rpm=0;fuel=0;fuelCap=0;fuelPct=-1;x=0;y=0;z=0;gearLabel="N";packetVersion="?";warning="";surface="";map.clear();}
         String fieldsJson(){ return "{\"connected\":"+connected+",\"decodeOk\":"+valid+",\"status\":\""+(valid?"ok":"aguardando_dados_validos")+"\",\"updatedAt\":"+updatedAt+",\"velocidade\":"+r(speed)+",\"velocidadeMaxima\":"+r(maxSpeed)+",\"rpm\":"+Math.round(rpm)+",\"marcha\":\""+gearLabel+"\",\"marchaNumero\":"+gear+",\"acelerador\":"+throttle+",\"freio\":"+brake+",\"combustivel\":"+r(fuel)+",\"combustivelPorcentagem\":"+r(fuelPct)+",\"melhorVolta\":\""+fmt(best)+"\",\"ultimaVolta\":\""+fmt(last)+"\",\"voltaAtual\":\""+fmt(current)+"\",\"tempoTotalCorrida\":\""+fmt((int)raceMs)+"\",\"voltasCompletadas\":"+laps+",\"voltasCorrigidas\":"+Math.max(0,laps-1)+",\"packetVersion\":\""+packetVersion+"\",\"lastPacketSize\":"+lastPacketSize+",\"surfaceType\":\""+surface+"\",\"position\":{\"x\":"+r(x)+",\"y\":"+r(y)+",\"z\":"+r(z)+"},\"warning\":\""+esc(warning)+"\"}"; }
-        String entryJson(){ String date=new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()); return "{\"schema\":\"gt7_entry_v1_4_3\",\"source\":\"GT7 Bridge Mobile v1.4.3\",\"data\":\""+date+"\",\"melhor_volta\":\""+fmt(best)+"\",\"ultima_volta\":\""+fmt(last)+"\",\"tempo_total\":\""+fmt((int)raceMs)+"\",\"voltas\":"+Math.max(0,laps-1)+",\"velocidade_maxima\":\""+Math.round(maxSpeed)+" km/h\",\"velocidade_final\":\""+Math.round(speed)+" km/h\",\"telemetria_completa\":"+fieldsJson()+"}"; }
+        String entryJson(){ String date=new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()); return "{\"schema\":\"gt7_entry_v1_4_4\",\"source\":\"GT7 Bridge Mobile v1.4.4\",\"data\":\""+date+"\",\"melhor_volta\":\""+fmt(best)+"\",\"ultima_volta\":\""+fmt(last)+"\",\"tempo_total\":\""+fmt((int)raceMs)+"\",\"voltas\":"+Math.max(0,laps-1)+",\"velocidade_maxima\":\""+Math.round(maxSpeed)+" km/h\",\"velocidade_final\":\""+Math.round(speed)+" km/h\",\"telemetria_completa\":"+fieldsJson()+"}"; }
         String statusJson(){ return "{\"connected\":"+connected+",\"decodeOk\":"+valid+",\"packetVersion\":\""+packetVersion+"\",\"lastPacketSize\":"+lastPacketSize+",\"warning\":\""+esc(warning)+"\"}"; }
         String mapJson(){ StringBuilder s=new StringBuilder("{\"points\":["); for(int i=0;i<map.size();i++){float[] p=map.get(i); if(i>0)s.append(','); s.append("{\"x\":").append(r(p[0])).append(",\"y\":").append(r(p[1])).append(",\"z\":").append(r(p[2])).append('}');} return s.append("]}").toString(); }
         String pretty(){ return "Status: "+(valid?"dados válidos":"aguardando dados válidos")+"\nPacote: "+packetVersion+" / "+lastPacketSize+"\nVelocidade: "+Math.round(speed)+" km/h\nV. Máxima: "+Math.round(maxSpeed)+" km/h\nRPM: "+Math.round(rpm)+"\nMarcha: "+gearLabel+"\nAcelerador: "+throttle+"%\nFreio: "+brake+"%\nCombustível: "+r(fuel)+" L\nVoltas: "+Math.max(0,laps-1); }
