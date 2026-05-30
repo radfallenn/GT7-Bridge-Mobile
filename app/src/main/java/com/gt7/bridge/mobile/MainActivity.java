@@ -3,8 +3,8 @@ package com.gt7.bridge.mobile;
 import android.app.Activity;
 import android.os.Bundle;
 import android.graphics.Color;
-import android.content.SharedPreferences;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.rgb(245,245,245));
 
         TextView title = new TextView(this);
-        title.setText("GT7 Bridge Mobile v1.4.4");
+        title.setText("GT7 Bridge Mobile v1.4.5");
         title.setTextSize(22);
         title.setTextColor(Color.BLACK);
         root.addView(title);
@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
         root.addView(row);
 
         Button open = new Button(this);
-        open.setText("Abrir Telemetria no app");
+        open.setText("Abrir gt7.online no app");
         root.addView(open);
 
         Button save = new Button(this);
@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
         ws.setLoadWithOverviewMode(true);
         ws.setUseWideViewPort(true);
         ws.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        webView.setWebChromeClient(new WebChromeClient());
         webView.addJavascriptInterface(new BridgeJs(), "GT7AndroidBridge");
         webView.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view, String url){ injectBridgeHints(); }
@@ -99,7 +100,7 @@ public class MainActivity extends Activity {
 
         start.setOnClickListener(v -> startBridge());
         stop.setOnClickListener(v -> { saveSession("auto_stop"); stopBridge(); });
-        open.setOnClickListener(v -> openTelemetry());
+        open.setOnClickListener(v -> openSite());
         save.setOnClickListener(v -> saveSession("manual"));
 
         new Thread(this::httpServer).start();
@@ -120,10 +121,10 @@ public class MainActivity extends Activity {
         status.setText("Status: parado");
     }
 
-    private void openTelemetry(){
+    private void openSite(){
         if(!running.get()) startBridge();
         webView.setVisibility(WebView.VISIBLE);
-        status.setText("Status: abrindo telemetria no app");
+        status.setText("Status: abrindo gt7.online dentro do APK");
         webView.loadUrl("https://gt7.online");
     }
 
@@ -262,16 +263,12 @@ public class MainActivity extends Activity {
                 "localStorage.setItem('gt7TelemetryMode','mobile-apk-push');"+
                 "localStorage.setItem('gt7BridgeHttpUrl','http://127.0.0.1:8787/api/fields');"+
                 "localStorage.setItem('gt7BridgeEntryUrl','http://127.0.0.1:8787/api/entry');"+
-                "localStorage.setItem('gt7OpenTelemetryOnStart','true');"+
-                "localStorage.setItem('gt7FullscreenPreferred','true');"+
-                "localStorage.setItem('gt7ShowAllTelemetry','true');"+
                 "window.GT7_BRIDGE_MODE='mobile-apk-push';"+
                 "window.GT7_BRIDGE_URL='http://127.0.0.1:8787/api/fields';"+
                 "window.__gt7MobileBridgeActive=true;"+
                 "const originalFetch=window.fetch.bind(window);"+
                 "window.fetch=function(input,init){const url=(typeof input==='string'?input:(input&&input.url)||'');if(url.includes('127.0.0.1:8787')||url.includes('localhost:8787')){let data=url.includes('/api/status')?GT7AndroidBridge.getStatus():(url.includes('/api/map')?GT7AndroidBridge.getMap():(url.includes('/api/entry')?GT7AndroidBridge.getEntry():GT7AndroidBridge.getFields()));return Promise.resolve(new Response(data,{status:200,headers:{'Content-Type':'application/json'}}));}return originalFetch(input,init);};"+
-                "window.dispatchEvent(new CustomEvent('gt7-bridge-mobile-ready',{detail:{mode:'mobile-apk-push',openTab:'telemetry',fullscreen:true,showAllTelemetry:true}}));"+
-                "setTimeout(function(){try{window.dispatchEvent(new CustomEvent('gt7-open-telemetry-fullscreen',{detail:{fullscreen:true,showAllTelemetry:true}}));}catch(e){}},1200);"+
+                "window.dispatchEvent(new CustomEvent('gt7-bridge-mobile-ready',{detail:{mode:'mobile-apk-push'}}));"+
                 "}catch(e){console.log('GT7 Bridge inject error',e)}";
         webView.evaluateJavascript(js, null);
         pushTelemetry();
@@ -301,7 +298,7 @@ public class MainActivity extends Activity {
         ArrayList<float[]> map=new ArrayList<>();
         void resetSession(){connected=false;valid=false;updatedAt=0;startMs=0;raceMs=0;lastPacketSize=0;gear=0;throttle=0;brake=0;laps=0;best=-1;last=-1;current=-1;speed=0;maxSpeed=0;rpm=0;fuel=0;fuelCap=0;fuelPct=-1;x=0;y=0;z=0;gearLabel="N";packetVersion="?";warning="";surface="";map.clear();}
         String fieldsJson(){ return "{\"connected\":"+connected+",\"decodeOk\":"+valid+",\"status\":\""+(valid?"ok":"aguardando_dados_validos")+"\",\"updatedAt\":"+updatedAt+",\"velocidade\":"+r(speed)+",\"velocidadeMaxima\":"+r(maxSpeed)+",\"rpm\":"+Math.round(rpm)+",\"marcha\":\""+gearLabel+"\",\"marchaNumero\":"+gear+",\"acelerador\":"+throttle+",\"freio\":"+brake+",\"combustivel\":"+r(fuel)+",\"combustivelPorcentagem\":"+r(fuelPct)+",\"melhorVolta\":\""+fmt(best)+"\",\"ultimaVolta\":\""+fmt(last)+"\",\"voltaAtual\":\""+fmt(current)+"\",\"tempoTotalCorrida\":\""+fmt((int)raceMs)+"\",\"voltasCompletadas\":"+laps+",\"voltasCorrigidas\":"+Math.max(0,laps-1)+",\"packetVersion\":\""+packetVersion+"\",\"lastPacketSize\":"+lastPacketSize+",\"surfaceType\":\""+surface+"\",\"position\":{\"x\":"+r(x)+",\"y\":"+r(y)+",\"z\":"+r(z)+"},\"warning\":\""+esc(warning)+"\"}"; }
-        String entryJson(){ String date=new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()); return "{\"schema\":\"gt7_entry_v1_4_4\",\"source\":\"GT7 Bridge Mobile v1.4.4\",\"data\":\""+date+"\",\"melhor_volta\":\""+fmt(best)+"\",\"ultima_volta\":\""+fmt(last)+"\",\"tempo_total\":\""+fmt((int)raceMs)+"\",\"voltas\":"+Math.max(0,laps-1)+",\"velocidade_maxima\":\""+Math.round(maxSpeed)+" km/h\",\"velocidade_final\":\""+Math.round(speed)+" km/h\",\"telemetria_completa\":"+fieldsJson()+"}"; }
+        String entryJson(){ String date=new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()); return "{\"schema\":\"gt7_entry_v1_4_5\",\"source\":\"GT7 Bridge Mobile v1.4.5\",\"data\":\""+date+"\",\"melhor_volta\":\""+fmt(best)+"\",\"ultima_volta\":\""+fmt(last)+"\",\"tempo_total\":\""+fmt((int)raceMs)+"\",\"voltas\":"+Math.max(0,laps-1)+",\"velocidade_maxima\":\""+Math.round(maxSpeed)+" km/h\",\"velocidade_final\":\""+Math.round(speed)+" km/h\",\"telemetria_completa\":"+fieldsJson()+"}"; }
         String statusJson(){ return "{\"connected\":"+connected+",\"decodeOk\":"+valid+",\"packetVersion\":\""+packetVersion+"\",\"lastPacketSize\":"+lastPacketSize+",\"warning\":\""+esc(warning)+"\"}"; }
         String mapJson(){ StringBuilder s=new StringBuilder("{\"points\":["); for(int i=0;i<map.size();i++){float[] p=map.get(i); if(i>0)s.append(','); s.append("{\"x\":").append(r(p[0])).append(",\"y\":").append(r(p[1])).append(",\"z\":").append(r(p[2])).append('}');} return s.append("]}").toString(); }
         String pretty(){ return "Status: "+(valid?"dados válidos":"aguardando dados válidos")+"\nPacote: "+packetVersion+" / "+lastPacketSize+"\nVelocidade: "+Math.round(speed)+" km/h\nV. Máxima: "+Math.round(maxSpeed)+" km/h\nRPM: "+Math.round(rpm)+"\nMarcha: "+gearLabel+"\nAcelerador: "+throttle+"%\nFreio: "+brake+"%\nCombustível: "+r(fuel)+" L\nVoltas: "+Math.max(0,laps-1); }
