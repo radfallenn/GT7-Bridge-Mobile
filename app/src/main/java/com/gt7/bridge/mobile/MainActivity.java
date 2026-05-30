@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.rgb(245,245,245));
 
         TextView title = new TextView(this);
-        title.setText("GT7 Bridge Mobile v1.4.5");
+        title.setText("GT7 Bridge Mobile v1.4.6");
         title.setTextSize(22);
         title.setTextColor(Color.BLACK);
         root.addView(title);
@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
         root.addView(save);
 
         status = new TextView(this);
-        status.setText("Status: parado");
+        status.setText("Status: parado. Toque em Iniciar Bridge antes de abrir o site.");
         status.setTextSize(15);
         root.addView(status);
 
@@ -108,10 +108,10 @@ public class MainActivity extends Activity {
     }
 
     private void startBridge(){
-        if(running.get()) return;
+        if(running.get()) { status.setText("Status: bridge já está ativo"); return; }
         synchronized(t){ t.resetSession(); }
         running.set(true);
-        status.setText("Status: bridge ativo");
+        status.setText("Status: bridge ativo. Aguardando pacotes do PS5...");
         new Thread(this::udpReceiver).start();
         new Thread(this::heartbeat).start();
     }
@@ -122,9 +122,9 @@ public class MainActivity extends Activity {
     }
 
     private void openSite(){
-        if(!running.get()) startBridge();
         webView.setVisibility(WebView.VISIBLE);
-        status.setText("Status: abrindo gt7.online dentro do APK");
+        if(running.get()) status.setText("Status: gt7.online aberto. Bridge ativo.");
+        else status.setText("Status: gt7.online aberto. Bridge ainda não iniciado.");
         webView.loadUrl("https://gt7.online");
     }
 
@@ -298,7 +298,7 @@ public class MainActivity extends Activity {
         ArrayList<float[]> map=new ArrayList<>();
         void resetSession(){connected=false;valid=false;updatedAt=0;startMs=0;raceMs=0;lastPacketSize=0;gear=0;throttle=0;brake=0;laps=0;best=-1;last=-1;current=-1;speed=0;maxSpeed=0;rpm=0;fuel=0;fuelCap=0;fuelPct=-1;x=0;y=0;z=0;gearLabel="N";packetVersion="?";warning="";surface="";map.clear();}
         String fieldsJson(){ return "{\"connected\":"+connected+",\"decodeOk\":"+valid+",\"status\":\""+(valid?"ok":"aguardando_dados_validos")+"\",\"updatedAt\":"+updatedAt+",\"velocidade\":"+r(speed)+",\"velocidadeMaxima\":"+r(maxSpeed)+",\"rpm\":"+Math.round(rpm)+",\"marcha\":\""+gearLabel+"\",\"marchaNumero\":"+gear+",\"acelerador\":"+throttle+",\"freio\":"+brake+",\"combustivel\":"+r(fuel)+",\"combustivelPorcentagem\":"+r(fuelPct)+",\"melhorVolta\":\""+fmt(best)+"\",\"ultimaVolta\":\""+fmt(last)+"\",\"voltaAtual\":\""+fmt(current)+"\",\"tempoTotalCorrida\":\""+fmt((int)raceMs)+"\",\"voltasCompletadas\":"+laps+",\"voltasCorrigidas\":"+Math.max(0,laps-1)+",\"packetVersion\":\""+packetVersion+"\",\"lastPacketSize\":"+lastPacketSize+",\"surfaceType\":\""+surface+"\",\"position\":{\"x\":"+r(x)+",\"y\":"+r(y)+",\"z\":"+r(z)+"},\"warning\":\""+esc(warning)+"\"}"; }
-        String entryJson(){ String date=new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()); return "{\"schema\":\"gt7_entry_v1_4_5\",\"source\":\"GT7 Bridge Mobile v1.4.5\",\"data\":\""+date+"\",\"melhor_volta\":\""+fmt(best)+"\",\"ultima_volta\":\""+fmt(last)+"\",\"tempo_total\":\""+fmt((int)raceMs)+"\",\"voltas\":"+Math.max(0,laps-1)+",\"velocidade_maxima\":\""+Math.round(maxSpeed)+" km/h\",\"velocidade_final\":\""+Math.round(speed)+" km/h\",\"telemetria_completa\":"+fieldsJson()+"}"; }
+        String entryJson(){ String date=new SimpleDateFormat("dd/MM/yyyy",Locale.getDefault()).format(new Date()); return "{\"schema\":\"gt7_entry_v1_4_6\",\"source\":\"GT7 Bridge Mobile v1.4.6\",\"data\":\""+date+"\",\"melhor_volta\":\""+fmt(best)+"\",\"ultima_volta\":\""+fmt(last)+"\",\"tempo_total\":\""+fmt((int)raceMs)+"\",\"voltas\":"+Math.max(0,laps-1)+",\"velocidade_maxima\":\""+Math.round(maxSpeed)+" km/h\",\"velocidade_final\":\""+Math.round(speed)+" km/h\",\"telemetria_completa\":"+fieldsJson()+"}"; }
         String statusJson(){ return "{\"connected\":"+connected+",\"decodeOk\":"+valid+",\"packetVersion\":\""+packetVersion+"\",\"lastPacketSize\":"+lastPacketSize+",\"warning\":\""+esc(warning)+"\"}"; }
         String mapJson(){ StringBuilder s=new StringBuilder("{\"points\":["); for(int i=0;i<map.size();i++){float[] p=map.get(i); if(i>0)s.append(','); s.append("{\"x\":").append(r(p[0])).append(",\"y\":").append(r(p[1])).append(",\"z\":").append(r(p[2])).append('}');} return s.append("]}").toString(); }
         String pretty(){ return "Status: "+(valid?"dados válidos":"aguardando dados válidos")+"\nPacote: "+packetVersion+" / "+lastPacketSize+"\nVelocidade: "+Math.round(speed)+" km/h\nV. Máxima: "+Math.round(maxSpeed)+" km/h\nRPM: "+Math.round(rpm)+"\nMarcha: "+gearLabel+"\nAcelerador: "+throttle+"%\nFreio: "+brake+"%\nCombustível: "+r(fuel)+" L\nVoltas: "+Math.max(0,laps-1); }
