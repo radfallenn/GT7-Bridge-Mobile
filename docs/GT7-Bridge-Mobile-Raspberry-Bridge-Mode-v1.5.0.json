@@ -1,0 +1,14 @@
+{
+  "name": "GT7 Bridge Mobile Raspberry Bridge Mode",
+  "version": "1.5.0",
+  "target_repository": "radfallenn/GT7-Bridge-Mobile",
+  "default_fields_url": "http://192.168.1.70:8787/api/fields",
+  "default_status_url": "http://192.168.1.70:8787/api/status",
+  "goal": "Adicionar modo Raspberry Bridge ao APK mantendo layout moderno.",
+  "changes": [
+    "Adicionar modo Raspberry Bridge",
+    "Conectar no endpoint do Raspberry",
+    "Usar os dados JSON recebidos para atualizar os cards",
+    "Manter modo UDP direto como opcao separada"
+  ]
+}
