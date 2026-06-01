@@ -1,0 +1,17 @@
+{
+  "name": "GT7 Bridge Mobile Race Dashboard Rebuild",
+  "version": "1.5.2",
+  "target_repository": "radfallenn/GT7-Bridge-Mobile",
+  "goal": "Renovar do zero a interface do APK Bridge com cara de dashboard de corrida, priorizando Raspberry Bridge como fonte principal da telemetria.",
+  "default_raspberry_url": "http://192.168.1.70:8787/api/fields",
+  "default_ps5_ip": "192.168.1.54",
+  "main_features": [
+    "Dashboard de corrida com visual dark cockpit",
+    "Raspberry Bridge como modo principal",
+    "Modo UDP direto preservado como fallback",
+    "Cards grandes para velocidade, RPM, marcha e tempo",
+    "Secoes Corrida, Timing, Powertrain, Coordenadas, Pit Wall",
+    "Detalhes tecnicos recolhiveis",
+    "Sem WebView interna para evitar travamentos"
+  ]
+}
