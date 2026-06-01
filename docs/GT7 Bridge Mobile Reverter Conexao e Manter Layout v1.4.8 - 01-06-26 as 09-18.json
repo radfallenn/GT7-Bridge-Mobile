@@ -1,0 +1,54 @@
+{
+  "name": "GT7 Bridge Mobile Reverter Conexao e Manter Layout v1.4.8",
+  "version": "1.4.8",
+  "created_at": "01/06/26 as 09-18",
+  "target_repository": "radfallenn/GT7-Bridge-Mobile",
+  "goal": "Voltar a lógica de conexão para a base estável que conectava melhor, mantendo a interface/layout moderno exatamente no estilo das imagens enviadas.",
+  "confirmed_rule": "Usar somente o repositório GT7-Bridge-Mobile.",
+  "interface_to_keep": {
+    "theme": "dark premium neon",
+    "sections": [
+      "Dashboard Telemetria",
+      "HUD Telemetria",
+      "Todos os Dados",
+      "Visualizar Mapa",
+      "Sessões",
+      "Telemetria ao Vivo",
+      "Voltas e Resultados",
+      "Motor & Dinâmica do Veículo",
+      "Coordenadas e Mapa do Circuito",
+      "Mostrar Detalhes do Bridge"
+    ],
+    "visual_rules": [
+      "Manter o layout e a identidade visual como nas imagens.",
+      "Manter cards escuros com cantos arredondados.",
+      "Manter tipografia em caixa alta e destaques coloridos.",
+      "Manter botões Salvar Sessão e Fullscreen HUD.",
+      "Manter a divisão por blocos e o visual do painel."
+    ]
+  },
+  "connection_revert": {
+    "base_behavior": "Restaurar comportamento estável de conexão UDP sem desmontar o layout moderno.",
+    "requirements": [
+      "Conectar ao PS5 usando o IP padrão já preenchido 192.168.1.54.",
+      "Priorizar estabilidade da recepção UDP.",
+      "Bridge deve receber novamente Pacote C / 368 quando o jogo estiver transmitindo.",
+      "Velocidade, RPM, Marcha e demais métricas devem atualizar em tempo real.",
+      "Abrir o gt7.online somente depois que o Bridge estiver conectado."
+    ]
+  },
+  "do_not_change": [
+    "Não simplificar a interface.",
+    "Não voltar ao layout branco antigo.",
+    "Não remover abas nem seções visuais do dashboard moderno."
+  ],
+  "acceptance_tests": [
+    "O app mantém o visual das imagens.",
+    "A conexão volta a funcionar como na base estável.",
+    "Status sai de OFFLINE/DESCONECTADO para conectado quando houver pacote válido.",
+    "Pacote UDP mostra atividade.",
+    "Telemetria ao vivo atualiza.",
+    "Todos os Dados continua disponível.",
+    "Mapa e sessões continuam visíveis no layout."
+  ]
+}
