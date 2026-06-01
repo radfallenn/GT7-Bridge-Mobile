@@ -1,0 +1,25 @@
+{
+  "name": "GT7 Bridge Mobile Racing Dashboard UI",
+  "version": "1.5.1",
+  "target_repository": "radfallenn/GT7-Bridge-Mobile",
+  "goal": "Deixar o APK com aparência de dashboard de corrida profissional, preservando a telemetria e o modo Raspberry Bridge.",
+  "theme": "racing telemetry cockpit",
+  "changes": [
+    "Titulo GT7 Race Dashboard",
+    "Subtitulo Racing Telemetry Raspberry UDP",
+    "Aba HUD Corrida",
+    "Aba Data Logger",
+    "Secao Painel de Corrida",
+    "Secao Timing e Resultado",
+    "Secao Tracado e Coordenadas",
+    "Detalhes do Bridge como Pit Wall",
+    "Botoes com linguagem de corrida"
+  ],
+  "must_keep": [
+    "Modo Raspberry Bridge",
+    "Modo UDP direto",
+    "Layout escuro",
+    "Cards em tempo real",
+    "URL Raspberry padrao http://192.168.1.70:8787/api/fields"
+  ]
+}
