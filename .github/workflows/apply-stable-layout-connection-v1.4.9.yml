@@ -1,0 +1,52 @@
+name: Aplicar versão funcional com layout novo v1.4.9
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-stable-layout-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Aplicar conexão funcional mantendo layout novo
+        run: node scripts/apply-stable-layout-connection-v1.4.9.mjs
+
+      - name: Atualizar versão Gradle para 1.4.9
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/build.gradle')
+          s = p.read_text()
+          s = s.replace("versionCode 11", "versionCode 13")
+          s = s.replace("versionCode 12", "versionCode 13")
+          s = s.replace("versionName '1.4.7'", "versionName '1.4.9'")
+          s = s.replace("versionName '1.4.8'", "versionName '1.4.9'")
+          p.write_text(s)
+          PY
+
+      - name: Mostrar diff
+        run: git diff -- app/src/main/java/com/gt7/bridge/mobile/MainActivity.java app/build.gradle
+
+      - name: Commitar alterações
+        run: |
+          if git diff --quiet -- app/src/main/java/com/gt7/bridge/mobile/MainActivity.java app/build.gradle; then
+            echo "Nenhuma alteração necessária."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app/src/main/java/com/gt7/bridge/mobile/MainActivity.java app/build.gradle
+            git commit -m "Voltar conexão funcional mantendo layout novo"
+            git push
+          fi
