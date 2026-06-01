@@ -1,0 +1,11 @@
+{
+  "name": "GT7 Bridge Mobile Registro Visual e Copiar Tudo v1.4.8",
+  "version": "1.4.8",
+  "created_at": "01/06/26 as 08-42",
+  "target_repository": "radfallenn/GT7-Bridge-Mobile",
+  "goal": "Adicionar aba Novo Registro no APK com campos das imagens e botão Copiar Tudo.",
+  "fields": ["Marca", "Carro", "Pneus / Configuração", "Posição", "CT", "Mapeamento", "Melhor Volta", "Tempo Total", "Data", "Clima", "Transmissão", "Periférico", "Pits", "Voltas", "Driver", "Velocidade Final"],
+  "tempo_total": "Calcular Tempo Total = Melhor Volta x Voltas quando Tempo Total estiver vazio.",
+  "copy_all": "Botão Copiar Tudo copia todos os campos do Novo Registro.",
+  "expected_version": "GT7 Bridge Mobile v1.4.8"
+}
