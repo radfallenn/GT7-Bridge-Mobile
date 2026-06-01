@@ -1,0 +1,22 @@
+{
+  "name": "GT7 Bridge Mobile Correcao Conexao UDP v1.4.8",
+  "version": "1.4.8",
+  "created_at": "01/06/26 as 09-05",
+  "target_repository": "radfallenn/GT7-Bridge-Mobile",
+  "goal": "Corrigir falha de conexão do APK com o PS5 mantendo o layout atual.",
+  "changes": [
+    "Iniciar Bridge automaticamente após abrir o app.",
+    "Manter IP padrão 192.168.1.54.",
+    "Aumentar frequência do heartbeat para o PS5.",
+    "Usar bind UDP mais seguro na porta 33740.",
+    "Manter botão Iniciar Bridge manual.",
+    "Atualizar versão para v1.4.8."
+  ],
+  "acceptance_tests": [
+    "Ao abrir o app, o Bridge tenta iniciar sozinho.",
+    "Depois de alguns segundos em corrida, aparece Pacote C / 368.",
+    "Velocidade e RPM atualizam.",
+    "Botão Iniciar Bridge ainda funciona se o auto-start falhar.",
+    "gt7.online só deve ser aberto depois da telemetria estar chegando."
+  ]
+}
