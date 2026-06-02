@@ -25,9 +25,6 @@ jobs:
           unzip -q gradle-8.9-bin.zip
           echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
 
-      - name: Aplicar patch visual v156
-        run: node scripts/apply-v156-visual.js
-
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
 
