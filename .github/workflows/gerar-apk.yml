@@ -25,34 +25,8 @@ jobs:
           unzip -q gradle-8.9-bin.zip
           echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
 
-      - name: Remover abas extras
-        run: |
-          perl -0777 -i -pe 's/\s*shell\.addView\(tabs\(\)\);//' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-
-      - name: Remover Volta Alvo
-        run: |
-          perl -0777 -i -pe 's/grid2\(card\("VOLTAS CORRIGIDAS", "voltasCorrigidas", BLUE\), targetCard\(\)\)/grid2(card("VOLTAS CORRIGIDAS", "voltasCorrigidas", BLUE), card("ESTADO DA CORRIDA", "estadoCorrida", BLUE))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-          perl -0777 -i -pe 's/wrap\.addView\(grid2\(card\("ESTADO DA CORRIDA", "estadoCorrida", BLUE\), card\("PARADAS BOXES", "paradasBoxes", TXT\)\)\);/wrap.addView(grid2(card("PARADAS BOXES", "paradasBoxes", TXT), card("VELOCIDADE MÁXIMA", "velocidadeMaxima", YELLOW)));/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-
-      - name: Melhorar barras de acelerador e freio
-        run: |
-          perl -0777 -i -pe 's/new LinearLayout\.LayoutParams\(-1, dp\(96\)\)/new LinearLayout.LayoutParams(-1, dp(112))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-          perl -0777 -i -pe 's/text\("0%", 11, color, true\)/text("0%", 13, color, true)/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-          perl -0777 -i -pe 's/new LinearLayout\.LayoutParams\(-1, dp\(18\)\)/new LinearLayout.LayoutParams(-1, dp(26))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-          perl -0777 -i -pe 's/bar\.setProgress\(0\);/bar.setProgress(0);\n        bar.getProgressDrawable().setTint(color);/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-
-      - name: Adicionar salvamento simples
-        run: |
-          perl -0777 -i -pe 's/import android\.widget\.TextView;/import android.widget.TextView;\nimport android.widget.Toast;/' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-          perl -0777 -i -pe 's/actions1\.addView\(smallPill\("▣ SALVAR SESSÃO", YELLOW, Color\.parseColor\("#2E2511"\)\)\);/TextView saveBtn = smallPill("▣ SALVAR SESSÃO", YELLOW, Color.parseColor("#2E2511"));\n        saveBtn.setOnClickListener(v -> { getSharedPreferences("gt7_bridge", MODE_PRIVATE).edit().putString("last_manual_session", telemetry.tempoTotal).apply(); Toast.makeText(this, "Sessão salva", Toast.LENGTH_SHORT).show(); });\n        actions1.addView(saveBtn);/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-
-      - name: Adicionar historico basico
-        run: |
-          perl -0777 -i -pe 's/shell\.addView\(details\(\)\);/shell.addView(details());\n        shell.addView(section("HISTÓRICO DE SESSÕES", GREEN));\n        TextView hist = text("Último salvamento manual: " + getSharedPreferences("gt7_bridge", MODE_PRIVATE).getString("last_manual_session", "--"), 12, TXT, true);\n        hist.setPadding(dp(14), dp(14), dp(14), dp(14));\n        hist.setBackground(round(CARD_DARK, 20, STROKE, 1));\n        shell.addView(hist);/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
-
-      - name: Adicionar salvamento automatico simples
-        run: |
-          perl -0777 -i -pe 's/setDetail\("velocidadeDetalhe", telemetry\.velocidade \+ " km\/h"\);/setDetail("velocidadeDetalhe", telemetry.velocidade + " km\/h");\n        int autoVel = 0;\n        try { autoVel = Integer.parseInt(telemetry.velocidade.replaceAll("[^0-9-]", "")); } catch (Exception ignored) {}\n        int autoLaps = 0;\n        try { autoLaps = Integer.parseInt(telemetry.voltasCorrigidas.replaceAll("[^0-9-]", "")); } catch (Exception ignored) {}\n        if (autoLaps > 0 && autoVel <= 3 && !telemetry.ultimaVolta.equals("--") && !getSharedPreferences("gt7_bridge", MODE_PRIVATE).getString("last_auto_session", "").equals(telemetry.tempoTotal)) { getSharedPreferences("gt7_bridge", MODE_PRIVATE).edit().putString("last_auto_session", telemetry.tempoTotal).putString("last_manual_session", "AUTO: " + telemetry.tempoTotal).apply(); }/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+      - name: Aplicar patch visual v156
+        run: node scripts/apply-v156-visual.js
 
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
