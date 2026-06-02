@@ -2,49 +2,40 @@ name: Gerar APK Android
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
+      - name: Setup Android
         uses: android-actions/setup-android@v3
 
-      - name: Instalar Gradle automaticamente
+      - name: Instalar Gradle
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.9-bin.zip
           unzip -q gradle-8.9-bin.zip
           echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
-          gradle --version
-
-      - name: Aplicar correcoes UI v1.5.4
-        run: node scripts/apply-ui-fixes-v1.5.4.mjs
 
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Preparar APK para download
+      - name: Preparar APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v1.5.4.apk
-          ls -la dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v1.5.5.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GT7-Bridge-Mobile-APK
-          path: dist/*.apk
+          path: dist/GT7-Bridge-Mobile-v1.5.5.apk
           if-no-files-found: error
-          retention-days: 30
