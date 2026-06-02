@@ -29,6 +29,11 @@ jobs:
         run: |
           perl -0777 -i -pe 's/\s*shell\.addView\(tabs\(\)\);//' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
 
+      - name: Remover Volta Alvo
+        run: |
+          perl -0777 -i -pe 's/grid2\(card\("VOLTAS CORRIGIDAS", "voltasCorrigidas", BLUE\), targetCard\(\)\)/grid2(card("VOLTAS CORRIGIDAS", "voltasCorrigidas", BLUE), card("ESTADO DA CORRIDA", "estadoCorrida", BLUE))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+          perl -0777 -i -pe 's/wrap\.addView\(grid2\(card\("ESTADO DA CORRIDA", "estadoCorrida", BLUE\), card\("PARADAS BOXES", "paradasBoxes", TXT\)\)\);/wrap.addView(grid2(card("PARADAS BOXES", "paradasBoxes", TXT), card("VELOCIDADE MÁXIMA", "velocidadeMaxima", YELLOW)));/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
 
