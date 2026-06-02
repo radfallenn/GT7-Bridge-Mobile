@@ -29,17 +29,8 @@ jobs:
           echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
           gradle --version
 
-      - name: Aplicar correções UI v1.5.4
+      - name: Aplicar correcoes UI v1.5.4
         run: node scripts/apply-ui-fixes-v1.5.4.mjs
-
-      - name: Conferir arquivos do projeto
-        run: |
-          echo "Raiz do repositório:"
-          ls -la
-          echo "Pasta app:"
-          ls -la app
-          echo "MainActivity:"
-          ls -la app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
 
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
@@ -47,8 +38,7 @@ jobs:
       - name: Preparar APK para download
         run: |
           mkdir -p dist
-          VERSION_NAME=$(grep -o "VERSION = \"[^"]*\"" app/src/main/java/com/gt7/bridge/mobile/MainActivity.java | head -1 | sed 's/VERSION = "//;s/"//')
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/GT7-Bridge-Mobile-v${VERSION_NAME}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v1.5.4.apk
           ls -la dist
 
       - name: Upload APK
