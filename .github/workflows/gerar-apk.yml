@@ -46,6 +46,10 @@ jobs:
           perl -0777 -i -pe 's/import android\.widget\.TextView;/import android.widget.TextView;\nimport android.widget.Toast;/' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
           perl -0777 -i -pe 's/actions1\.addView\(smallPill\("▣ SALVAR SESSÃO", YELLOW, Color\.parseColor\("#2E2511"\)\)\);/TextView saveBtn = smallPill("▣ SALVAR SESSÃO", YELLOW, Color.parseColor("#2E2511"));\n        saveBtn.setOnClickListener(v -> { getSharedPreferences("gt7_bridge", MODE_PRIVATE).edit().putString("last_manual_session", telemetry.tempoTotal).apply(); Toast.makeText(this, "Sessão salva", Toast.LENGTH_SHORT).show(); });\n        actions1.addView(saveBtn);/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
 
+      - name: Adicionar historico basico
+        run: |
+          perl -0777 -i -pe 's/shell\.addView\(details\(\)\);/shell.addView(details());\n        shell.addView(section("HISTÓRICO DE SESSÕES", GREEN));\n        TextView hist = text("Último salvamento manual: " + getSharedPreferences("gt7_bridge", MODE_PRIVATE).getString("last_manual_session", "--"), 12, TXT, true);\n        hist.setPadding(dp(14), dp(14), dp(14), dp(14));\n        hist.setBackground(round(CARD_DARK, 20, STROKE, 1));\n        shell.addView(hist);/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
 
