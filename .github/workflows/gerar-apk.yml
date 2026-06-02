@@ -25,6 +25,10 @@ jobs:
           unzip -q gradle-8.9-bin.zip
           echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
 
+      - name: Remover abas extras
+        run: |
+          perl -0777 -i -pe 's/\s*shell\.addView\(tabs\(\)\);//' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
 
