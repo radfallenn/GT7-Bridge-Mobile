@@ -34,6 +34,13 @@ jobs:
           perl -0777 -i -pe 's/grid2\(card\("VOLTAS CORRIGIDAS", "voltasCorrigidas", BLUE\), targetCard\(\)\)/grid2(card("VOLTAS CORRIGIDAS", "voltasCorrigidas", BLUE), card("ESTADO DA CORRIDA", "estadoCorrida", BLUE))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
           perl -0777 -i -pe 's/wrap\.addView\(grid2\(card\("ESTADO DA CORRIDA", "estadoCorrida", BLUE\), card\("PARADAS BOXES", "paradasBoxes", TXT\)\)\);/wrap.addView(grid2(card("PARADAS BOXES", "paradasBoxes", TXT), card("VELOCIDADE MÁXIMA", "velocidadeMaxima", YELLOW)));/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
 
+      - name: Melhorar barras de acelerador e freio
+        run: |
+          perl -0777 -i -pe 's/new LinearLayout\.LayoutParams\(-1, dp\(96\)\)/new LinearLayout.LayoutParams(-1, dp(112))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+          perl -0777 -i -pe 's/text\("0%", 11, color, true\)/text("0%", 13, color, true)/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+          perl -0777 -i -pe 's/new LinearLayout\.LayoutParams\(-1, dp\(18\)\)/new LinearLayout.LayoutParams(-1, dp(26))/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+          perl -0777 -i -pe 's/bar\.setProgress\(0\);/bar.setProgress(0);\n        bar.getProgressDrawable().setTint(color);/g' app/src/main/java/com/gt7/bridge/mobile/MainActivity.java
+
       - name: Gerar APK Debug
         run: gradle clean :app:assembleDebug --stacktrace --no-daemon
 
