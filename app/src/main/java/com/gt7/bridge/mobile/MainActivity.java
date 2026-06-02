@@ -1,6 +1,7 @@
 package com.gt7.bridge.mobile;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -11,8 +12,10 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ProgressBar;
@@ -34,14 +37,12 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final String VERSION = "1.5.8";
-    private static final String BASE_URL = "http://192.168.1.70:8787";
-    private static final String FIELDS_URL = BASE_URL + "/api/fields";
-    private static final String HEALTH_URL = BASE_URL + "/api/health";
-    private static final String DEBUG_URL = BASE_URL + "/api/debug";
-    private static final String CANDIDATES_URL = BASE_URL + "/api/candidates";
+    private static final String VERSION = "1.5.9";
+    private static final String BRIDGE_URL = "http://192.168.1.70:8787";
     private static final String PREF = "gt7_bridge_mobile";
     private static final String KEY_SESSIONS = "gt7_saved_sessions";
+    private static final String KEY_PS5_IP = "ps5_ip";
+    private static final String DEFAULT_PS5_IP = "192.168.1.54";
 
     private static final int BG = Color.parseColor("#030711");
     private static final int PANEL = Color.parseColor("#07111F");
@@ -67,41 +68,21 @@ public class MainActivity extends Activity {
     private TextView statusBadge, miniSpeed, miniRpm, miniGear, ps5Value, syncValue, packetValue, healthLine;
     private TextView debugText, candidatesText, historyText;
     private LinearLayout debugPanel, historyPanel;
-    private boolean detailsOpen = false;
-    private boolean historyOpen = false;
-
-    private long sessionStartAt = 0;
-    private boolean sessionActive = false;
-    private boolean sessionSaved = false;
+    private boolean detailsOpen = false, historyOpen = false;
+    private long sessionStartAt = 0, lastLapChange = 0, lastActive = 0;
     private int lastLaps = 0;
-    private long lastLapChange = 0;
-    private long lastActive = 0;
+    private boolean sessionActive = false, sessionSaved = false;
 
     private final String[][] options = new String[][]{
-            {"Velocidade", "velocidade"},
-            {"Velocidade Máxima", "velocidadeMaxima"},
-            {"RPM", "rpm"},
-            {"Marcha", "marcha"},
-            {"Acelerador", "acelerador"},
-            {"Freio", "freio"},
-            {"Combustível", "combustivel"},
-            {"Combustível %", "combustivelPct"},
-            {"Melhor Volta", "melhorVolta"},
-            {"Última Volta", "ultimaVolta"},
-            {"Tempo Total", "tempoTotal"},
-            {"Voltas Brutas", "voltasBrutas"},
-            {"Voltas Corrigidas", "voltasCorrigidas"},
-            {"Estado da Corrida", "estadoCorrida"},
-            {"Paradas Boxes", "paradasBoxes"},
-            {"Pressão do Turbo", "turbo"},
-            {"Pressão do Óleo", "oilPressure"},
-            {"Vetores Velocidade", "speedVector"},
-            {"Rotação Pitch/Roll/Yaw", "rotation"},
-            {"Velocidade Angular", "angularVelocity"},
-            {"Coordenadas X/Y/Z", "position"},
-            {"PS5 IP", "ps5Ip"},
-            {"Pacote UDP", "packet"},
-            {"Status Bridge", "bridgeStatus"}
+            {"Velocidade", "velocidade"}, {"Velocidade Máxima", "velocidadeMaxima"},
+            {"RPM", "rpm"}, {"Marcha", "marcha"}, {"Acelerador", "acelerador"}, {"Freio", "freio"},
+            {"Combustível", "combustivel"}, {"Combustível %", "combustivelPct"},
+            {"Melhor Volta", "melhorVolta"}, {"Última Volta", "ultimaVolta"}, {"Tempo Total", "tempoTotal"},
+            {"Corrida Completa", "corridaCompleta"}, {"Voltas Brutas", "voltasBrutas"}, {"Voltas Corrigidas", "voltasCorrigidas"},
+            {"Estado da Corrida", "estadoCorrida"}, {"Paradas Boxes", "paradasBoxes"}, {"Código do Carro", "codigoCarro"},
+            {"Pressão do Turbo", "turbo"}, {"Pressão do Óleo", "oilPressure"}, {"Vetores Velocidade", "speedVector"},
+            {"Rotação Pitch/Roll/Yaw", "rotation"}, {"Velocidade Angular", "angularVelocity"}, {"Coordenadas X/Y/Z", "position"},
+            {"PS5 IP", "ps5Ip"}, {"Pacote UDP", "packet"}, {"Status Bridge", "bridgeStatus"}
     };
 
     private final Runnable tick = new Runnable() {
@@ -128,8 +109,7 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(BG);
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout root = vBox();
         root.setPadding(dp(18), dp(14), dp(18), dp(24));
         scroll.addView(root, new ScrollView.LayoutParams(-1, -2));
         setContentView(scroll);
@@ -155,8 +135,7 @@ public class MainActivity extends Activity {
     }
 
     private View titleBar() {
-        LinearLayout wrap = new LinearLayout(this);
-        wrap.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout wrap = vBox();
         LinearLayout row = hRow();
         View bar = new View(this);
         bar.setBackground(round(BLUE, 8, BLUE, 0));
@@ -194,20 +173,12 @@ public class MainActivity extends Activity {
         row.addView(mini, new LinearLayout.LayoutParams(0, dp(72), 1));
         LinearLayout mr = hRow();
         mini.addView(mr);
-        mr.addView(text("VOLANTE:", 9, MUTED, true));
-        mr.addView(space(5, 1));
-        miniSpeed = text("0 KM/H", 11, TXT, true);
-        mr.addView(miniSpeed);
-        mr.addView(space(10, 1));
-        mr.addView(text("RPM:", 9, MUTED, true));
-        mr.addView(space(5, 1));
-        miniRpm = text("0", 11, YELLOW, true);
-        mr.addView(miniRpm);
-        mr.addView(space(10, 1));
-        mr.addView(text("M:", 9, MUTED, true));
-        mr.addView(space(5, 1));
-        miniGear = text("N", 11, GREEN, true);
-        mr.addView(miniGear);
+        mr.addView(text("VOLANTE:", 9, MUTED, true)); mr.addView(space(5, 1));
+        miniSpeed = text("0 KM/H", 11, TXT, true); mr.addView(miniSpeed); mr.addView(space(10, 1));
+        mr.addView(text("RPM:", 9, MUTED, true)); mr.addView(space(5, 1));
+        miniRpm = text("0", 11, YELLOW, true); mr.addView(miniRpm); mr.addView(space(10, 1));
+        mr.addView(text("M:", 9, MUTED, true)); mr.addView(space(5, 1));
+        miniGear = text("N", 11, GREEN, true); mr.addView(miniGear);
         card.addView(row);
 
         LinearLayout ip = box(Color.parseColor("#050912"), 16, Color.parseColor("#0F1928"), 1);
@@ -218,9 +189,11 @@ public class MainActivity extends Activity {
         LinearLayout ipr = hRow();
         ip.addView(ipr);
         ipr.addView(text("PS5 IP:", 10, MUTED, true), new LinearLayout.LayoutParams(0, -2, 1));
-        ps5Value = text("192.168.1.54", 11, YELLOW, true);
+        ps5Value = text(getPs5Ip(), 11, YELLOW, true);
         ps5Value.setGravity(Gravity.RIGHT);
         ipr.addView(ps5Value, new LinearLayout.LayoutParams(0, -2, 1));
+        ip.setOnClickListener(v -> editPs5Ip());
+        ps5Value.setOnClickListener(v -> editPs5Ip());
         card.addView(ip);
 
         syncValue = addInfo(card, "Sincronização:", "--:--:--", TXT);
@@ -232,11 +205,15 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(-1, -2);
         alp.setMargins(0, dp(16), 0, 0);
         actions.setLayoutParams(alp);
+        TextView editIp = smallPill("✎ EDITAR IP PS5", CYAN, Color.parseColor("#0B2630"));
+        editIp.setOnClickListener(v -> editPs5Ip());
+        actions.addView(editIp);
+        actions.addView(space(10, 1));
         TextView save = smallPill("▣ SALVAR SESSÃO", YELLOW, Color.parseColor("#2E2511"));
         save.setOnClickListener(v -> saveSession("manual"));
         actions.addView(save);
         actions.addView(space(10, 1));
-        TextView debug = smallPill("⟳ ATUALIZAR DEBUG", BLUE, Color.parseColor("#11223E"));
+        TextView debug = smallPill("⟳ DEBUG", BLUE, Color.parseColor("#11223E"));
         debug.setOnClickListener(v -> { fetchDebug(true); fetchCandidates(true); fetchHealth(true); });
         actions.addView(debug);
         card.addView(actions);
@@ -269,17 +246,17 @@ public class MainActivity extends Activity {
     private View resultsGrid() {
         LinearLayout wrap = vBox();
         rowSelectable(wrap, selectable("Melhor Volta", "melhorVolta", PURPLE), selectable("Última Volta", "ultimaVolta", TXT));
+        rowSelectable(wrap, selectable("Corrida Completa", "corridaCompleta", CYAN), selectable("Voltas Corrigidas", "voltasCorrigidas", BLUE));
         rowSelectable(wrap, selectable("Tempo Total", "tempoTotal", CYAN), selectable("Voltas Brutas", "voltasBrutas", TXT));
-        rowSelectable(wrap, selectable("Voltas Corrigidas", "voltasCorrigidas", BLUE), selectable("Estado da Corrida", "estadoCorrida", BLUE));
-        rowSelectable(wrap, selectable("Paradas Boxes", "paradasBoxes", TXT), selectable("Velocidade Máxima", "velocidadeMaxima", YELLOW));
+        rowSelectable(wrap, selectable("Estado da Corrida", "estadoCorrida", BLUE), selectable("Paradas Boxes", "paradasBoxes", TXT));
         return wrap;
     }
 
     private View vehicleGrid() {
         LinearLayout wrap = vBox();
-        rowSelectable(wrap, selectable("Pressão do Turbo", "turbo", PURPLE), selectable("Pressão do Óleo", "oilPressure", ORANGE));
-        rowSelectable(wrap, selectable("Vetores Velocidade", "speedVector", GREEN), selectable("Rotação Pitch/Roll/Yaw", "rotation", PURPLE));
-        wrap.addView(singleSelectable("Velocidade Angular", "angularVelocity", CYAN));
+        rowSelectable(wrap, selectable("Código do Carro", "codigoCarro", YELLOW), selectable("Pressão do Turbo", "turbo", PURPLE));
+        rowSelectable(wrap, selectable("Pressão do Óleo", "oilPressure", ORANGE), selectable("Vetores Velocidade", "speedVector", GREEN));
+        rowSelectable(wrap, selectable("Rotação Pitch/Roll/Yaw", "rotation", PURPLE), selectable("Velocidade Angular", "angularVelocity", CYAN));
         return wrap;
     }
 
@@ -353,10 +330,7 @@ public class MainActivity extends Activity {
         for (String[] item : options) menu.getMenu().add(item[0]);
         menu.setOnMenuItemClickListener(item -> {
             String label = String.valueOf(item.getTitle());
-            ref.title = label;
-            ref.key = keyFromLabel(label);
-            ref.color = colorForKey(ref.key);
-            refreshSelectableCards();
+            ref.title = label; ref.key = keyFromLabel(label); ref.color = colorForKey(ref.key); refreshSelectableCards();
             return true;
         });
         menu.show();
@@ -367,26 +341,19 @@ public class MainActivity extends Activity {
         for (String[] item : options) menu.getMenu().add(item[0]);
         menu.setOnMenuItemClickListener(item -> {
             String label = String.valueOf(item.getTitle());
-            ref.title = label;
-            ref.key = keyFromLabel(label);
-            ref.color = colorForKey(ref.key);
-            ref.bar.getProgressDrawable().setTint(ref.color);
-            refreshSelectableCards();
+            ref.title = label; ref.key = keyFromLabel(label); ref.color = colorForKey(ref.key); ref.bar.getProgressDrawable().setTint(ref.color); refreshSelectableCards();
             return true;
         });
         menu.show();
     }
 
-    private String keyFromLabel(String label) {
-        for (String[] item : options) if (item[0].equals(label)) return item[1];
-        return "velocidade";
-    }
+    private String keyFromLabel(String label) { for (String[] item : options) if (item[0].equals(label)) return item[1]; return "velocidade"; }
 
     private int colorForKey(String key) {
-        if (key.contains("Maxima") || key.equals("packet")) return YELLOW;
+        if (key.equals("codigoCarro") || key.equals("packet") || key.equals("velocidadeMaxima")) return YELLOW;
         if (key.equals("marcha") || key.equals("acelerador") || key.equals("speedVector")) return GREEN;
         if (key.equals("freio")) return RED;
-        if (key.equals("combustivelPct") || key.equals("tempoTotal") || key.equals("angularVelocity") || key.equals("position")) return CYAN;
+        if (key.equals("corridaCompleta") || key.equals("combustivelPct") || key.equals("tempoTotal") || key.equals("angularVelocity") || key.equals("position")) return CYAN;
         if (key.equals("melhorVolta") || key.equals("turbo") || key.equals("rotation")) return PURPLE;
         if (key.equals("oilPressure")) return ORANGE;
         if (key.equals("estadoCorrida") || key.equals("voltasCorrigidas") || key.equals("bridgeStatus")) return BLUE;
@@ -395,11 +362,7 @@ public class MainActivity extends Activity {
 
     private View detailsToggle() {
         TextView tt = toggle("▣  MOSTRAR DETALHES DO BRIDGE      ▼", YELLOW);
-        tt.setOnClickListener(v -> {
-            detailsOpen = !detailsOpen;
-            debugPanel.setVisibility(detailsOpen ? View.VISIBLE : View.GONE);
-            tt.setText(detailsOpen ? "▣  RECOLHER DETALHES DO BRIDGE      ▲" : "▣  MOSTRAR DETALHES DO BRIDGE      ▼");
-        });
+        tt.setOnClickListener(v -> { detailsOpen = !detailsOpen; debugPanel.setVisibility(detailsOpen ? View.VISIBLE : View.GONE); tt.setText(detailsOpen ? "▣  RECOLHER DETALHES DO BRIDGE      ▲" : "▣  MOSTRAR DETALHES DO BRIDGE      ▼"); });
         return tt;
     }
 
@@ -408,27 +371,17 @@ public class MainActivity extends Activity {
         debugPanel.setPadding(dp(14), dp(14), dp(14), dp(14));
         debugPanel.setVisibility(View.GONE);
         TextView b1 = smallPill("ATUALIZAR /api/debug", BLUE, Color.parseColor("#11223E"));
-        b1.setOnClickListener(v -> fetchDebug(true));
-        debugPanel.addView(b1);
-        debugText = text("Debug ainda não carregado.", 12, TXT, false);
-        debugText.setPadding(0, dp(12), 0, dp(12));
-        debugPanel.addView(debugText);
+        b1.setOnClickListener(v -> fetchDebug(true)); debugPanel.addView(b1);
+        debugText = text("Debug ainda não carregado.", 12, TXT, false); debugText.setPadding(0, dp(12), 0, dp(12)); debugPanel.addView(debugText);
         TextView b2 = smallPill("ATUALIZAR /api/candidates", GREEN, Color.parseColor("#06271E"));
-        b2.setOnClickListener(v -> fetchCandidates(true));
-        debugPanel.addView(b2);
-        candidatesText = text("Candidatos ainda não carregados.", 12, TXT, false);
-        candidatesText.setPadding(0, dp(12), 0, 0);
-        debugPanel.addView(candidatesText);
+        b2.setOnClickListener(v -> fetchCandidates(true)); debugPanel.addView(b2);
+        candidatesText = text("Candidatos ainda não carregados.", 12, TXT, false); candidatesText.setPadding(0, dp(12), 0, 0); debugPanel.addView(candidatesText);
         return debugPanel;
     }
 
     private View historyToggle() {
         TextView tt = toggle("▣  MOSTRAR HISTÓRICO DE SESSÕES      ▼", GREEN);
-        tt.setOnClickListener(v -> {
-            historyOpen = !historyOpen;
-            historyPanel.setVisibility(historyOpen ? View.VISIBLE : View.GONE);
-            tt.setText(historyOpen ? "▣  RECOLHER HISTÓRICO DE SESSÕES      ▲" : "▣  MOSTRAR HISTÓRICO DE SESSÕES      ▼");
-        });
+        tt.setOnClickListener(v -> { historyOpen = !historyOpen; historyPanel.setVisibility(historyOpen ? View.VISIBLE : View.GONE); tt.setText(historyOpen ? "▣  RECOLHER HISTÓRICO DE SESSÕES      ▲" : "▣  MOSTRAR HISTÓRICO DE SESSÕES      ▼"); });
         return tt;
     }
 
@@ -441,10 +394,35 @@ public class MainActivity extends Activity {
         return historyPanel;
     }
 
-    private void fetchFields() { fetchJson(FIELDS_URL, obj -> { t.fromJson(obj); applyTelemetry(); }); }
-    private void fetchHealth(boolean toast) { fetchJson(HEALTH_URL, obj -> { h.fromJson(obj); applyHealth(); if (toast) Toast.makeText(this, "Health atualizado", Toast.LENGTH_SHORT).show(); }); }
-    private void fetchDebug(boolean toast) { fetchJson(DEBUG_URL, obj -> { applyDebug(obj); if (toast) Toast.makeText(this, "Debug atualizado", Toast.LENGTH_SHORT).show(); }); }
-    private void fetchCandidates(boolean toast) { fetchJson(CANDIDATES_URL, obj -> { applyCandidates(obj); if (toast) Toast.makeText(this, "Candidatos atualizados", Toast.LENGTH_SHORT).show(); }); }
+    private void editPs5Ip() {
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_PHONE);
+        input.setText(getPs5Ip());
+        input.setSelectAllOnFocus(true);
+        input.setPadding(dp(18), dp(12), dp(18), dp(12));
+        new AlertDialog.Builder(this)
+                .setTitle("Editar IP do PS5")
+                .setMessage("Esse IP fica salvo no app e aparece preenchido. Para mudar o IP usado pelo bridge, ajuste também o PS5_IP no Raspberry se necessário.")
+                .setView(input)
+                .setPositiveButton("Salvar", (d, w) -> {
+                    String ip = input.getText().toString().trim();
+                    if (ip.length() == 0) ip = DEFAULT_PS5_IP;
+                    getPrefs().edit().putString(KEY_PS5_IP, ip).apply();
+                    ps5Value.setText(ip);
+                    t.ps5Ip = ip;
+                    refreshSelectableCards();
+                    Toast.makeText(this, "IP do PS5 salvo", Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private String getPs5Ip() { return getPrefs().getString(KEY_PS5_IP, DEFAULT_PS5_IP); }
+
+    private void fetchFields() { fetchJson(BRIDGE_URL + "/api/fields", obj -> { t.fromJson(obj, getPs5Ip()); applyTelemetry(); }); }
+    private void fetchHealth(boolean toast) { fetchJson(BRIDGE_URL + "/api/health", obj -> { h.fromJson(obj); applyHealth(); if (toast) Toast.makeText(this, "Health atualizado", Toast.LENGTH_SHORT).show(); }); }
+    private void fetchDebug(boolean toast) { fetchJson(BRIDGE_URL + "/api/debug", obj -> { applyDebug(obj); if (toast) Toast.makeText(this, "Debug atualizado", Toast.LENGTH_SHORT).show(); }); }
+    private void fetchCandidates(boolean toast) { fetchJson(BRIDGE_URL + "/api/candidates", obj -> { applyCandidates(obj); if (toast) Toast.makeText(this, "Candidatos atualizados", Toast.LENGTH_SHORT).show(); }); }
 
     private interface JsonCb { void ok(JSONObject obj) throws Exception; }
 
@@ -452,20 +430,14 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                conn.setConnectTimeout(1200);
-                conn.setReadTimeout(1200);
+                conn.setConnectTimeout(1200); conn.setReadTimeout(1200);
                 BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
+                StringBuilder sb = new StringBuilder(); String line;
                 while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-                JSONObject obj = new JSONObject(sb.toString());
+                br.close(); JSONObject obj = new JSONObject(sb.toString());
                 handler.post(() -> { try { cb.ok(obj); } catch (Exception ignored) {} });
             } catch (Exception e) {
-                handler.post(() -> {
-                    if (url.equals(FIELDS_URL)) { t.offline(); applyTelemetry(); }
-                    if (url.equals(HEALTH_URL)) { h.ok = false; applyHealth(); }
-                });
+                handler.post(() -> { if (url.contains("/api/fields")) { t.offline(); applyTelemetry(); } if (url.contains("/api/health")) { h.ok = false; applyHealth(); } });
             }
         }).start();
     }
@@ -474,27 +446,13 @@ public class MainActivity extends Activity {
         statusBadge.setText(t.connected ? (t.decodeOk ? "CONECTADO\nAO PS5" : "ONLINE /\nPACOTE") : "OFFLINE /\nDESCONECTADO");
         statusBadge.setTextColor(t.connected ? (t.decodeOk ? GREEN : YELLOW) : RED);
         statusBadge.setBackground(round(t.connected ? Color.parseColor("#0A3022") : Color.parseColor("#3A0C1B"), 18, t.connected ? Color.parseColor("#145437") : Color.parseColor("#572234"), 1));
-        miniSpeed.setText(t.velocidade + " KM/H");
-        miniRpm.setText(t.rpm);
-        miniGear.setText(t.marcha);
-        ps5Value.setText(t.ps5Ip);
-        syncValue.setText(t.timeText());
-        packetValue.setText(t.packetVersion + " (" + t.packetSize + " bytes)");
-        refreshSelectableCards();
-        updateSessionState();
+        miniSpeed.setText(t.velocidade + " KM/H"); miniRpm.setText(t.rpm); miniGear.setText(t.marcha); ps5Value.setText(t.ps5Ip); syncValue.setText(t.timeText()); packetValue.setText(t.packetVersion + " (" + t.packetSize + " bytes)");
+        refreshSelectableCards(); updateSessionState();
     }
 
     private void refreshSelectableCards() {
-        for (CardRef ref : cards) {
-            ref.view.setText(formatCard(ref.title, valueFor(ref.key)));
-            ref.view.setTextColor(ref.color);
-        }
-        for (ProgressRef ref : progressCards) {
-            ref.titleView.setText(ref.title.toUpperCase(Locale.ROOT) + "        ✓");
-            ref.valueView.setText(valueFor(ref.key));
-            ref.valueView.setTextColor(ref.color);
-            ref.bar.setProgress(percentFor(ref.key));
-        }
+        for (CardRef ref : cards) { ref.view.setText(formatCard(ref.title, valueFor(ref.key))); ref.view.setTextColor(ref.color); }
+        for (ProgressRef ref : progressCards) { ref.titleView.setText(ref.title.toUpperCase(Locale.ROOT) + "        ✓"); ref.valueView.setText(valueFor(ref.key)); ref.valueView.setTextColor(ref.color); ref.bar.setProgress(percentFor(ref.key)); }
     }
 
     private String valueFor(String key) {
@@ -509,10 +467,12 @@ public class MainActivity extends Activity {
         if (key.equals("melhorVolta")) return t.melhorVolta;
         if (key.equals("ultimaVolta")) return t.ultimaVolta;
         if (key.equals("tempoTotal")) return t.tempoTotal;
+        if (key.equals("corridaCompleta")) return t.corridaCompleta;
         if (key.equals("voltasBrutas")) return t.voltasBrutas;
         if (key.equals("voltasCorrigidas")) return t.voltasCorrigidas;
         if (key.equals("estadoCorrida")) return t.estadoCorrida;
         if (key.equals("paradasBoxes")) return t.paradasBoxes;
+        if (key.equals("codigoCarro")) return t.codigoCarro;
         if (key.equals("turbo")) return t.turbo;
         if (key.equals("oilPressure")) return t.oilPressure;
         if (key.equals("speedVector")) return t.speedVector;
@@ -525,108 +485,41 @@ public class MainActivity extends Activity {
         return "--";
     }
 
-    private int percentFor(String key) {
-        if (key.equals("acelerador")) return t.acelerador;
-        if (key.equals("freio")) return t.freio;
-        if (key.equals("combustivelPct")) return num(t.combustivelPct);
-        return Math.min(100, Math.max(0, num(valueFor(key))));
-    }
-
-    private void applyHealth() {
-        healthLine.setText(h.ok ? h.status + " • " + (h.connected ? "online" : "sem pacotes") : "offline");
-    }
+    private int percentFor(String key) { if (key.equals("acelerador")) return t.acelerador; if (key.equals("freio")) return t.freio; if (key.equals("combustivelPct")) return num(t.combustivelPct); return Math.min(100, Math.max(0, num(valueFor(key)))); }
+    private void applyHealth() { healthLine.setText(h.ok ? h.status + " • " + (h.connected ? "online" : "sem pacotes") : "offline"); }
 
     private void applyDebug(JSONObject obj) {
-        JSONObject k = obj.optJSONObject("knownOffsets");
-        StringBuilder sb = new StringBuilder();
-        sb.append("/api/debug OK: ").append(obj.optBoolean("ok", false)).append("\n");
-        sb.append("Pacote: ").append(obj.optString("packetVersion", "?")).append(" / ").append(obj.optInt("packetSize", 0)).append(" bytes\n\n");
-        if (k != null) {
-            JSONArray names = k.names();
-            if (names != null) for (int i = 0; i < names.length(); i++) {
-                String key = names.optString(i);
-                sb.append(key).append(" → ").append(k.optString(key)).append("\n");
-            }
-        }
+        JSONObject k = obj.optJSONObject("knownOffsets"); StringBuilder sb = new StringBuilder();
+        sb.append("/api/debug OK: ").append(obj.optBoolean("ok", false)).append("\n"); sb.append("Pacote: ").append(obj.optString("packetVersion", "?")).append(" / ").append(obj.optInt("packetSize", 0)).append(" bytes\n\n");
+        if (k != null) { JSONArray names = k.names(); if (names != null) for (int i = 0; i < names.length(); i++) { String key = names.optString(i); sb.append(key).append(" → ").append(k.optString(key)).append("\n"); } }
         debugText.setText(sb.toString());
     }
 
     private void applyCandidates(JSONObject obj) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("/api/candidates OK: ").append(obj.optBoolean("ok", false)).append("\n");
+        StringBuilder sb = new StringBuilder(); sb.append("/api/candidates OK: ").append(obj.optBoolean("ok", false)).append("\n");
         JSONObject values = obj.optJSONObject("values");
-        if (values != null) {
-            JSONArray names = values.names();
-            if (names != null) for (int i = 0; i < names.length(); i++) {
-                String key = names.optString(i);
-                sb.append(key).append(": ").append(values.opt(key)).append("\n");
-            }
-        } else {
-            JSONObject cand = obj.optJSONObject("candidates");
-            if (cand != null) sb.append(cand.toString()); else sb.append(obj.toString());
-        }
+        if (values != null) { JSONArray names = values.names(); if (names != null) for (int i = 0; i < names.length(); i++) { String key = names.optString(i); sb.append(key).append(": ").append(values.opt(key)).append("\n"); } }
+        else { JSONObject cand = obj.optJSONObject("candidates"); if (cand != null) sb.append(cand.toString()); else sb.append(obj.toString()); }
         candidatesText.setText(sb.toString());
     }
 
     private void updateSessionState() {
-        long now = System.currentTimeMillis();
-        boolean active = t.connected && (num(t.velocidade) > 5 || num(t.rpm) > 1200 || num(t.voltasCorrigidas) > 0);
-        if (active) {
-            lastActive = now;
-            if (!sessionActive) {
-                sessionActive = true;
-                sessionSaved = false;
-                sessionStartAt = now;
-                lastLaps = num(t.voltasCorrigidas);
-                lastLapChange = now;
-            }
-        }
-        int laps = num(t.voltasCorrigidas);
-        if (laps != lastLaps) { lastLaps = laps; lastLapChange = now; }
+        long now = System.currentTimeMillis(); boolean active = t.connected && (num(t.velocidade) > 5 || num(t.rpm) > 1200 || num(t.voltasCorrigidas) > 0);
+        if (active) { lastActive = now; if (!sessionActive) { sessionActive = true; sessionSaved = false; sessionStartAt = now; lastLaps = num(t.voltasCorrigidas); lastLapChange = now; } }
+        int laps = num(t.voltasCorrigidas); if (laps != lastLaps) { lastLaps = laps; lastLapChange = now; }
         boolean finished = sessionActive && !sessionSaved && laps > 0 && !t.ultimaVolta.equals("--") && num(t.velocidade) <= 3 && now - lastLapChange > 6000 && now - lastActive > 5000;
         if (finished) saveSession("automatico");
     }
 
     private void saveSession(String type) {
-        try {
-            JSONObject o = new JSONObject();
-            o.put("tipoSalvamento", type);
-            o.put("dataFim", new Date().toString());
-            o.put("ps5Ip", t.ps5Ip);
-            o.put("melhorVolta", t.melhorVolta);
-            o.put("ultimaVolta", t.ultimaVolta);
-            o.put("tempoTotal", t.tempoTotal);
-            o.put("voltasCorrigidas", t.voltasCorrigidas);
-            o.put("velocidadeMaxima", t.velocidadeMaxima);
-            JSONArray old = new JSONArray(getPrefs().getString(KEY_SESSIONS, "[]"));
-            JSONArray out = new JSONArray();
-            out.put(o);
-            for (int i = 0; i < old.length(); i++) out.put(old.getJSONObject(i));
-            getPrefs().edit().putString(KEY_SESSIONS, out.toString()).apply();
-            sessionSaved = true;
-            sessionActive = false;
-            loadHistory();
-            copy(o.toString());
-            Toast.makeText(this, type.equals("manual") ? "Sessão salva manualmente" : "Sessão salva automaticamente", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "Erro ao salvar sessão", Toast.LENGTH_SHORT).show();
-        }
+        try { JSONObject o = new JSONObject(); o.put("tipoSalvamento", type); o.put("dataFim", new Date().toString()); o.put("ps5Ip", t.ps5Ip); o.put("codigoCarro", t.codigoCarro); o.put("melhorVolta", t.melhorVolta); o.put("ultimaVolta", t.ultimaVolta); o.put("corridaCompleta", t.corridaCompleta); o.put("voltasCorrigidas", t.voltasCorrigidas); o.put("velocidadeMaxima", t.velocidadeMaxima); JSONArray old = new JSONArray(getPrefs().getString(KEY_SESSIONS, "[]")); JSONArray out = new JSONArray(); out.put(o); for (int i = 0; i < old.length(); i++) out.put(old.getJSONObject(i)); getPrefs().edit().putString(KEY_SESSIONS, out.toString()).apply(); sessionSaved = true; sessionActive = false; loadHistory(); copy(o.toString()); Toast.makeText(this, type.equals("manual") ? "Sessão salva manualmente" : "Sessão salva automaticamente", Toast.LENGTH_SHORT).show(); }
+        catch (Exception e) { Toast.makeText(this, "Erro ao salvar sessão", Toast.LENGTH_SHORT).show(); }
     }
 
     private void loadHistory() {
         if (historyText == null) return;
-        try {
-            JSONArray arr = new JSONArray(getPrefs().getString(KEY_SESSIONS, "[]"));
-            if (arr.length() == 0) { historyText.setText("Nenhuma sessão salva ainda."); return; }
-            StringBuilder sb = new StringBuilder();
-            int max = Math.min(12, arr.length());
-            for (int i = 0; i < max; i++) {
-                JSONObject o = arr.getJSONObject(i);
-                sb.append(o.optString("tipoSalvamento", "manual").toUpperCase(Locale.ROOT)).append(" • ").append(o.optString("dataFim", "--"))
-                        .append("\nMelhor: ").append(o.optString("melhorVolta", "--")).append("  Total: ").append(o.optString("tempoTotal", "--")).append("\n\n");
-            }
-            historyText.setText(sb.toString());
-        } catch (Exception e) { historyText.setText("Histórico indisponível."); }
+        try { JSONArray arr = new JSONArray(getPrefs().getString(KEY_SESSIONS, "[]")); if (arr.length() == 0) { historyText.setText("Nenhuma sessão salva ainda."); return; } StringBuilder sb = new StringBuilder(); int max = Math.min(12, arr.length()); for (int i = 0; i < max; i++) { JSONObject o = arr.getJSONObject(i); sb.append(o.optString("tipoSalvamento", "manual").toUpperCase(Locale.ROOT)).append(" • ").append(o.optString("dataFim", "--")).append("\nCarro: ").append(o.optString("codigoCarro", "--")).append("  Completa: ").append(o.optString("corridaCompleta", "--")).append("\n\n"); } historyText.setText(sb.toString()); }
+        catch (Exception e) { historyText.setText("Histórico indisponível."); }
     }
 
     private SharedPreferences getPrefs() { return getSharedPreferences(PREF, MODE_PRIVATE); }
@@ -650,11 +543,13 @@ public class MainActivity extends Activity {
     static class Health { boolean ok; String status="--"; boolean connected; void fromJson(JSONObject o){ ok=o.optBoolean("ok", false); status=o.optString("status", "--"); connected=o.optBoolean("connected", false); } }
 
     static class Telemetry {
-        boolean connected=false, decodeOk=false; long updatedAt=0; int packetSize=0, acelerador=0, freio=0; String packetVersion="?", ps5Ip="192.168.1.54", velocidade="0", velocidadeMaxima="0", rpm="0", marcha="N", combustivel="--", combustivelPct="--", melhorVolta="--", ultimaVolta="--", tempoTotal="--", voltasBrutas="0", voltasCorrigidas="0", estadoCorrida="EM ANDAMENTO", paradasBoxes="0", turbo="--", oilPressure="--", speedVector="--", rotation="--", angularVelocity="--", position="--";
-        void fromJson(JSONObject j){ connected=j.optBoolean("connected", false); decodeOk=j.optBoolean("decodeOk", false); updatedAt=j.optLong("updatedAt", System.currentTimeMillis()); packetSize=j.optInt("packetSize", 0); packetVersion=j.optString("packetVersion", "?"); ps5Ip=j.optString("ps5Ip", ps5Ip); velocidade=s(j,"velocidade"); velocidadeMaxima=s(j,"velocidadeMaxima"); rpm=s(j,"rpm"); marcha=j.optString("marcha", "N"); acelerador=j.optInt("acelerador",0); freio=j.optInt("freio",0); combustivel=s(j,"combustivel"); combustivelPct=s(j,"combustivelPorcentagem"); melhorVolta=j.optString("melhorVolta","--"); ultimaVolta=j.optString("ultimaVolta","--"); tempoTotal=j.optString("tempoTotalCorrida", j.optString("tempoTotal", "--")); voltasBrutas=s(j,"voltasCompletadas"); voltasCorrigidas=s(j,"voltasCorrigidas"); paradasBoxes=s(j,"paradasBoxes"); turbo=s(j,"turbo"); oilPressure=s(j,"oilPressure"); speedVector=obj(j.optJSONObject("speedVector")); rotation=obj(j.optJSONObject("rotation")); angularVelocity=obj(j.optJSONObject("angularVelocity")); position=obj(j.optJSONObject("position")); }
+        boolean connected=false, decodeOk=false; long updatedAt=0; int packetSize=0, acelerador=0, freio=0; String packetVersion="?", ps5Ip="192.168.1.54", velocidade="0", velocidadeMaxima="0", rpm="0", marcha="N", combustivel="--", combustivelPct="--", melhorVolta="--", ultimaVolta="--", tempoTotal="--", corridaCompleta="--", voltasBrutas="0", voltasCorrigidas="0", estadoCorrida="EM ANDAMENTO", paradasBoxes="0", codigoCarro="--", turbo="--", oilPressure="--", speedVector="--", rotation="--", angularVelocity="--", position="--";
+        void fromJson(JSONObject j, String savedPs5Ip){ connected=j.optBoolean("connected", false); decodeOk=j.optBoolean("decodeOk", false); updatedAt=j.optLong("updatedAt", System.currentTimeMillis()); packetSize=j.optInt("packetSize", 0); packetVersion=j.optString("packetVersion", "?"); ps5Ip=j.optString("ps5Ip", savedPs5Ip); velocidade=s(j,"velocidade"); velocidadeMaxima=s(j,"velocidadeMaxima"); rpm=s(j,"rpm"); marcha=j.optString("marcha", "N"); acelerador=j.optInt("acelerador",0); freio=j.optInt("freio",0); combustivel=s(j,"combustivel"); combustivelPct=s(j,"combustivelPorcentagem"); melhorVolta=j.optString("melhorVolta","--"); ultimaVolta=j.optString("ultimaVolta","--"); tempoTotal=j.optString("tempoTotalCorrida", j.optString("tempoTotal", "--")); corridaCompleta=j.optString("corridaCompleta", j.optString("raceComplete", j.optString("tempoTotalCorrida", estimateComplete(j)))); voltasBrutas=s(j,"voltasCompletadas"); voltasCorrigidas=s(j,"voltasCorrigidas"); paradasBoxes=s(j,"paradasBoxes"); codigoCarro=first(j, "codigoCarro", "carCode", "carId", "car_id", "vehicleCode", "car_code"); turbo=s(j,"turbo"); oilPressure=s(j,"oilPressure"); speedVector=obj(j.optJSONObject("speedVector")); rotation=obj(j.optJSONObject("rotation")); angularVelocity=obj(j.optJSONObject("angularVelocity")); position=obj(j.optJSONObject("position")); }
         void offline(){ connected=false; decodeOk=false; }
         String timeText(){ return new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(new Date(updatedAt==0?System.currentTimeMillis():updatedAt)); }
         static String s(JSONObject j,String k){ if(!j.has(k)||j.isNull(k)) return "--"; return String.valueOf(j.opt(k)); }
+        static String first(JSONObject j, String... keys){ for(String k: keys){ if(j.has(k) && !j.isNull(k)) return String.valueOf(j.opt(k)); } return "--"; }
         static String obj(JSONObject o){ if(o==null) return "--"; StringBuilder sb=new StringBuilder(); JSONArray n=o.names(); if(n==null) return "--"; for(int i=0;i<n.length();i++){ String k=n.optString(i); if(i>0) sb.append("  "); sb.append(k).append(": ").append(o.opt(k)); } return sb.toString(); }
+        static String estimateComplete(JSONObject j){ String total=j.optString("tempoTotalCorrida", "--"); if(!total.equals("--") && total.length()>0) return total; return "--"; }
     }
 }
