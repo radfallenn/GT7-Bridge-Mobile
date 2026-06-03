@@ -1,0 +1,469 @@
+{
+  "name": "GT7 Bridge Mobile v1.4.4 - Fullscreen ao abrir telemetria",
+  "version": "1.4.4",
+  "created_at": "03/06/26 as 09-21",
+  "target": "gt7.online",
+  "apk_target": "GT7 Bridge Mobile v1.4.4",
+  "goal": "Restaurar o comportamento e a base visual/funcional do GT7 Bridge Mobile v1.4.4. A única alteração permitida é: ao clicar em \"ABRIR TELEMETRIA NO APP\", abrir a tela de telemetria em fullscreen e exibir controle para minimizar e maximizar.",
+  "critical_context": {
+    "problem_fixed_in_apk": "A v1.4.3 abria o site com parâmetros na URL e podia gerar tela preta na WebView.",
+    "new_apk_behavior": [
+      "O botão 'Abrir Telemetria no app' abre apenas https://gt7.online.",
+      "O APK injeta localStorage e eventos depois que a página carrega.",
+      "O gt7.online deve detectar esses sinais e abrir a Telemetria automaticamente.",
+      "Não depender exclusivamente de query params para iniciar a telemetria."
+    ]
+  },
+  "do_not_break": [
+    "Não quebrar a conexão funcional da base v1.4/v1.4.1.",
+    "Não exigir parâmetros na URL para abrir a telemetria.",
+    "Não mostrar tela preta se a WebView abrir sem parâmetros.",
+    "Não remover dados do usuário.",
+    "Não recriar o app inteiro.",
+    "Não colocar botões de copiar no gt7.online.",
+    "Não aplicar mudanças visuais ou funcionais feitas depois da v1.4.4.",
+    "Não alterar a tela principal do APK além do comportamento do botão ABRIR TELEMETRIA NO APP.",
+    "Não alterar os cards da telemetria, os nomes dos campos, a ordem dos dados ou o tema do HUD.",
+    "Não remover o botão PARAR, INICIAR BRIDGE ou SALVAR SESSÃO.",
+    "Não parar a leitura de dados ao minimizar a telemetria.",
+    "Não criar nova aba, nova URL com parâmetros ou tela externa desnecessária."
+  ],
+  "bridge_detection": {
+    "primary_sources": [
+      "localStorage.gt7TelemetryMode === 'mobile-apk-push'",
+      "localStorage.gt7BridgeHttpUrl",
+      "localStorage.gt7BridgeEntryUrl",
+      "localStorage.gt7OpenTelemetryOnStart === 'true'",
+      "localStorage.gt7FullscreenPreferred === 'true'",
+      "localStorage.gt7ShowAllTelemetry === 'true'",
+      "window.__gt7MobileBridgeActive === true",
+      "event gt7-bridge-mobile-ready",
+      "event gt7-mobile-telemetry",
+      "event gt7-mobile-entry"
+    ],
+    "fallback_sources": [
+      "GET http://127.0.0.1:8787/api/fields",
+      "GET http://127.0.0.1:8787/api/entry",
+      "GET http://127.0.0.1:8787/api/status",
+      "GET http://127.0.0.1:8787/api/map"
+    ]
+  },
+  "startup_behavior": {
+    "when_bridge_detected": [
+      "Abrir automaticamente a aba Telemetria.",
+      "Ativar modo visual fullscreen/imersivo se gt7FullscreenPreferred for true.",
+      "Exibir a página única unificada Bridge + Telemetria.",
+      "Mostrar os dados do Bridge no mesmo tema escuro da telemetria.",
+      "Não exibir a tela branca simples do Bridge dentro do gt7.online.",
+      "Não depender da URL ter ?tab=telemetry."
+    ],
+    "if_no_bridge_detected": [
+      "Abrir o app normalmente.",
+      "Permitir que o usuário entre na aba Telemetria manualmente.",
+      "Não mostrar erro nem tela preta."
+    ]
+  },
+  "required_ui": {
+    "main_page": "Página única de Telemetria integrada ao Bridge",
+    "theme": "Escuro/neon/profissional igual ao GT7 Telemetry HUD PRO",
+    "sections": [
+      {
+        "title": "Status do Bridge",
+        "behavior": "Sempre visível quando conectado",
+        "fields": [
+          "Conectado",
+          "Status da leitura",
+          "Última atualização",
+          "Pacote",
+          "Avisos resumidos"
+        ]
+      },
+      {
+        "title": "Ao Vivo",
+        "fields": [
+          "Velocidade",
+          "Velocidade Máxima",
+          "RPM",
+          "Marcha",
+          "Acelerador",
+          "Freio",
+          "Combustível",
+          "Combustível %"
+        ]
+      },
+      {
+        "title": "Prova",
+        "fields": [
+          "Melhor Volta",
+          "Última Volta",
+          "Volta Atual",
+          "Tempo de Prova",
+          "Voltas Corrigidas",
+          "Voltas Alvo",
+          "Corrida Finalizada"
+        ]
+      },
+      {
+        "title": "Sessão / Registro",
+        "fields": [
+          "Pista",
+          "Marca do Carro",
+          "Modelo do Carro",
+          "Data",
+          "Clima",
+          "Transmissão",
+          "Periférico",
+          "Driver",
+          "Velocidade Final",
+          "Telemetria Completa"
+        ]
+      },
+      {
+        "title": "Mapa / Coordenadas",
+        "fields": [
+          "X",
+          "Y",
+          "Z",
+          "Rastro do mapa",
+          "Tipo de superfície"
+        ],
+        "collapsible": true
+      }
+    ]
+  },
+  "collapsible_reference_panel": {
+    "enabled": true,
+    "title": "Dados do Bridge / Referência de Telemetria",
+    "button_expand": "Expandir dados do Bridge",
+    "button_collapse": "Recolher dados do Bridge",
+    "replace_raw_text_area": true,
+    "collapsed_by_default": false,
+    "rules": [
+      "Substituir qualquer lista crua de texto por este painel.",
+      "Manter a lista numerada com números fixos.",
+      "Permitir que o usuário peça alterações por número.",
+      "Não exibir botões de copiar.",
+      "O painel recolhido não pode parar a telemetria."
+    ],
+    "numbered_fields": [
+      {
+        "ref": 1,
+        "label": "Conectado",
+        "key": "connected"
+      },
+      {
+        "ref": 2,
+        "label": "Decodificação válida",
+        "key": "decodeOk"
+      },
+      {
+        "ref": 3,
+        "label": "Status da leitura",
+        "key": "status"
+      },
+      {
+        "ref": 4,
+        "label": "Última atualização",
+        "key": "updatedAt"
+      },
+      {
+        "ref": 5,
+        "label": "Versão do pacote",
+        "key": "packetVersion"
+      },
+      {
+        "ref": 6,
+        "label": "Tamanho do pacote",
+        "key": "lastPacketSize"
+      },
+      {
+        "ref": 7,
+        "label": "Aviso / diagnóstico",
+        "key": "warning"
+      },
+      {
+        "ref": 8,
+        "label": "Velocidade atual",
+        "key": "velocidade"
+      },
+      {
+        "ref": 9,
+        "label": "Velocidade máxima",
+        "key": "velocidadeMaxima"
+      },
+      {
+        "ref": 10,
+        "label": "RPM",
+        "key": "rpm"
+      },
+      {
+        "ref": 11,
+        "label": "Marcha",
+        "key": "marcha"
+      },
+      {
+        "ref": 12,
+        "label": "Marcha numérica",
+        "key": "marchaNumero"
+      },
+      {
+        "ref": 13,
+        "label": "Acelerador",
+        "key": "acelerador"
+      },
+      {
+        "ref": 14,
+        "label": "Freio",
+        "key": "freio"
+      },
+      {
+        "ref": 15,
+        "label": "Combustível",
+        "key": "combustivel"
+      },
+      {
+        "ref": 16,
+        "label": "Combustível porcentagem",
+        "key": "combustivelPorcentagem"
+      },
+      {
+        "ref": 17,
+        "label": "Capacidade do tanque",
+        "key": "fuelCapacity"
+      },
+      {
+        "ref": 18,
+        "label": "Melhor volta",
+        "key": "melhorVolta"
+      },
+      {
+        "ref": 19,
+        "label": "Última volta",
+        "key": "ultimaVolta"
+      },
+      {
+        "ref": 20,
+        "label": "Volta atual / parcial",
+        "key": "voltaAtual"
+      },
+      {
+        "ref": 21,
+        "label": "Tempo total / prova",
+        "key": "tempoTotalCorrida"
+      },
+      {
+        "ref": 22,
+        "label": "Tempo congelado",
+        "key": "tempoProvaCongelado"
+      },
+      {
+        "ref": 23,
+        "label": "Voltas brutas",
+        "key": "voltasCompletadas"
+      },
+      {
+        "ref": 24,
+        "label": "Voltas corrigidas",
+        "key": "voltasCorrigidas"
+      },
+      {
+        "ref": 25,
+        "label": "Voltas da prova",
+        "key": "voltasAlvo"
+      },
+      {
+        "ref": 26,
+        "label": "Corrida finalizada",
+        "key": "corridaFinalizada"
+      },
+      {
+        "ref": 27,
+        "label": "Paradas nos boxes",
+        "key": "pits"
+      },
+      {
+        "ref": 28,
+        "label": "Coordenada X",
+        "key": "position.x"
+      },
+      {
+        "ref": 29,
+        "label": "Coordenada Y",
+        "key": "position.y"
+      },
+      {
+        "ref": 30,
+        "label": "Coordenada Z",
+        "key": "position.z"
+      },
+      {
+        "ref": 31,
+        "label": "Rastro do mapa",
+        "key": "trackCoordinates"
+      },
+      {
+        "ref": 32,
+        "label": "Tipo de superfície",
+        "key": "surfaceType"
+      },
+      {
+        "ref": 33,
+        "label": "Pista",
+        "key": "pista"
+      },
+      {
+        "ref": 34,
+        "label": "Marca do carro",
+        "key": "marcaCarro"
+      },
+      {
+        "ref": 35,
+        "label": "Modelo do carro",
+        "key": "modeloCarro"
+      },
+      {
+        "ref": 36,
+        "label": "Posição",
+        "key": "posicao"
+      },
+      {
+        "ref": 37,
+        "label": "CT",
+        "key": "ct"
+      },
+      {
+        "ref": 38,
+        "label": "Mapeamento",
+        "key": "mapeamento"
+      },
+      {
+        "ref": 39,
+        "label": "Data",
+        "key": "data"
+      },
+      {
+        "ref": 40,
+        "label": "Clima",
+        "key": "clima"
+      },
+      {
+        "ref": 41,
+        "label": "Transmissão",
+        "key": "transmissao"
+      },
+      {
+        "ref": 42,
+        "label": "Periférico",
+        "key": "periferico"
+      },
+      {
+        "ref": 43,
+        "label": "Driver",
+        "key": "driver"
+      },
+      {
+        "ref": 44,
+        "label": "Velocidade final",
+        "key": "velocidade_final"
+      },
+      {
+        "ref": 45,
+        "label": "Telemetria completa",
+        "key": "telemetria_completa"
+      }
+    ]
+  },
+  "data_normalization": {
+    "last_valid_values": [
+      "melhorVolta",
+      "ultimaVolta",
+      "voltaAtual",
+      "tempoTotalCorrida",
+      "velocidadeMaxima",
+      "combustivel",
+      "voltasCorrigidas",
+      "position"
+    ],
+    "rules": [
+      "Se o valor novo vier null, undefined, '--', NaN ou vazio, manter último valor válido.",
+      "VoltasCorrigidas deve ser Math.max(0, voltasCompletadas - 1).",
+      "VelocidadeMaxima deve ser o maior valor de velocidade da sessão.",
+      "Tempo de Prova deve usar tempo congelado se corridaFinalizada=true.",
+      "Última volta não deve voltar para '--' depois de possuir valor válido."
+    ]
+  },
+  "actions": {
+    "keep_buttons_in_gt7_online": [
+      "Finalizar Prova",
+      "Nova Sessão",
+      "Salvar Sessão"
+    ],
+    "remove_buttons_from_gt7_online": [
+      "Todos os botões de copiar"
+    ],
+    "apk_buttons_expected": [
+      "Iniciar Bridge",
+      "Parar",
+      "Abrir Telemetria no app",
+      "Salvar Sessão"
+    ]
+  },
+  "acceptance_tests": [
+    "Ao clicar em ABRIR TELEMETRIA NO APP no APK v1.4.4, a telemetria deve abrir diretamente em fullscreen.",
+    "O HUD deve ter botão para minimizar e maximizar.",
+    "Minimizar não pode parar o Bridge nem congelar os dados.",
+    "Maximizar deve restaurar o HUD completo no mesmo estado da sessão.",
+    "Nenhuma outra tela, layout, card, campo ou botão da v1.4.4 deve ser alterado.",
+    "Abrir Telemetria no app no APK v1.4.4 não pode resultar em tela preta.",
+    "gt7.online deve abrir normal e detectar o Bridge depois do carregamento.",
+    "Ao detectar Bridge, deve ir para Telemetria automaticamente.",
+    "A lista crua do Bridge deve virar painel recolhível numerado.",
+    "Todos os dados recebidos ou derivados devem aparecer na tela principal ou painel recolhível.",
+    "Nenhum botão de copiar deve aparecer no gt7.online.",
+    "Velocidade máxima, voltas corrigidas, última volta e telemetria completa devem continuar funcionando."
+  ],
+  "base_file_used": "GT7 Google AI Studio Sincronizar com APK Bridge v1.4.4 - 29-05-26 as 15-32 (1).json",
+  "restore_request": "Voltar para a versão 1.4.4 como base, sem aplicar alterações posteriores da v1.4.10.",
+  "single_allowed_change": {
+    "button": "ABRIR TELEMETRIA NO APP",
+    "behavior": [
+      "Ao tocar no botão, abrir a telemetria dentro do app em modo fullscreen/imersivo.",
+      "Não abrir uma tela branca simples nem mudar o layout interno da telemetria.",
+      "Manter a telemetria atualizando normalmente após entrar em fullscreen.",
+      "Adicionar um botão visível de minimizar/maximizar no HUD da telemetria.",
+      "O botão deve alternar entre janela cheia/fullscreen e modo minimizado sem parar o Bridge.",
+      "Quando minimizado, manter o Bridge ativo em segundo plano e permitir retornar ao HUD em fullscreen.",
+      "Quando maximizado novamente, restaurar exatamente o HUD da v1.4.4."
+    ]
+  },
+  "minimize_maximize_ui": {
+    "enabled": true,
+    "labels": {
+      "minimize": "MINIMIZAR",
+      "maximize": "MAXIMIZAR",
+      "fullscreen": "JANELA CHEIA"
+    },
+    "placement": "Topo do HUD de Telemetria, próximo aos controles existentes de fullscreen/sair, sem cobrir cards ou dados.",
+    "visual_rules": [
+      "Usar o mesmo tema escuro/neon da telemetria.",
+      "Botão pequeno, legível e com toque confortável no mobile.",
+      "Não alterar cores, posições, cards, fontes ou espaçamentos da base v1.4.4 além do novo controle.",
+      "Não exibir prévia, tutorial, modal ou tela intermediária."
+    ]
+  },
+  "implementation_notes_for_ai_studio": {
+    "base": "Usar a versão 1.4.4 como código base. Ignorar alterações posteriores, exceto regras de compatibilidade indispensáveis já existentes na base.",
+    "android_webview_fullscreen": [
+      "No clique de ABRIR TELEMETRIA NO APP, chamar a abertura da WebView/tela de telemetria já existente e solicitar fullscreen imersivo.",
+      "Aplicar flags de fullscreen/immersive sticky no container/tela da telemetria quando disponível.",
+      "No WebView/HUD, permitir fallback via Fullscreen API quando a camada web suportar requestFullscreen().",
+      "Caso Fullscreen API não esteja disponível, usar modo visual fullscreen via CSS: altura 100vh/100dvh, posição fixa, top/left 0, z-index alto, fundo escuro."
+    ],
+    "toggle_logic": [
+      "Criar estado único: telemetryHudFullscreen=true/false e telemetryHudMinimized=true/false.",
+      "MINIMIZAR define telemetryHudMinimized=true e reduz o HUD para uma barra/botão flutuante discreto.",
+      "MAXIMIZAR define telemetryHudMinimized=false e telemetryHudFullscreen=true, restaurando o HUD completo.",
+      "Não reiniciar sessão, não limpar localStorage e não zerar valores válidos ao alternar."
+    ]
+  }
+}
