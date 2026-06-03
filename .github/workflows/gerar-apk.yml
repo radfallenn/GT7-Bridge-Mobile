@@ -2,6 +2,12 @@ name: Gerar APK Android
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - '.github/workflows/gerar-apk.yml'
 
 jobs:
   build-apk:
@@ -31,11 +37,11 @@ jobs:
       - name: Preparar APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v157.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v159.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GT7-Bridge-Mobile-APK-v157
-          path: dist/GT7-Bridge-Mobile-v157.apk
+          name: GT7-Bridge-Mobile-APK-v159
+          path: dist/GT7-Bridge-Mobile-v159.apk
           if-no-files-found: error
