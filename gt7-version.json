@@ -1,0 +1,9 @@
+{
+  "project": "GT7 Telemetria",
+  "version": "v1.58",
+  "date": "04/06/26 as 11:56",
+  "webDir": "www",
+  "entry": "www/index.html",
+  "appId": "com.studiorad.gt7online",
+  "build": "GitHub Actions + Capacitor Android"
+}

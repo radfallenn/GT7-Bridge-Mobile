@@ -1,0 +1,18 @@
+{
+  "name": "gt7-telemetria-apk",
+  "version": "1.58.0",
+  "private": true,
+  "description": "GT7 Telemetria packaged with Capacitor for Android APK build via GitHub Actions.",
+  "scripts": {
+    "sync": "npx cap sync android",
+    "android:add": "npx cap add android",
+    "build:apk": "cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  }
+}
