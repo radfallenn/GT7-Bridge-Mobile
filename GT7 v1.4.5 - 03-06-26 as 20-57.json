@@ -1,0 +1,96 @@
+{
+  "project": "GT7 Bridge Mobile / gt7.online",
+  "version": "v1.4.5",
+  "created_at": "03-06-26 as 20-57",
+  "base_required": "Usar a última versão funcional do dashboard visual da imagem de referência. Não recriar do zero e não alterar o estilo visual.",
+  "main_request": "Tornar o dashboard funcional com dados reais da telemetria e check para escolher quais funções/cards ficam ativos.",
+  "visual_lock": {
+    "reference_image": "1000381960.png",
+    "rules": [
+      "Manter o layout exatamente igual à referência enviada.",
+      "Não mudar fundo, proporção, espaçamentos, bordas, estilo neon, tipografia, cards, ícones ou posição dos elementos.",
+      "Formato vertical 9:32.",
+      "Conta-giros circular grande no topo.",
+      "Cards abaixo em 2 colunas por linha.",
+      "Cada card mantém o check no canto superior direito.",
+      "O check serve para ativar/desativar a função exibida naquele card.",
+      "Não remover nenhum elemento visual da referência."
+    ]
+  },
+  "telemetry_bindings": {
+    "main_gauge": {
+      "center_speed": "velocidade / speed_kmh",
+      "rpm_arc": "rpm / engine_rpm convertido para escala 0-10 x1000",
+      "gear": "marcha / gear",
+      "track": "pista / trackName se disponível, senão TRACK",
+      "time": "hora local do app",
+      "intake": "temperatura de admissão se disponível, senão --",
+      "coolant": "temperatura da água/coolant se disponível, senão --",
+      "fuel": "combustivelPorcentagem / fuelPercent"
+    },
+    "cards": [
+      { "title": "TELEMETRY", "subtitle": "Live Data", "data": ["speed", "rpm", "gear", "throttle", "brake"], "button": "VIEW" },
+      { "title": "LAP TIMER", "subtitle": "Best Lap", "data": ["melhorVolta", "ultimaVolta", "voltaAtual", "voltasCorrigidas"], "button": "START" },
+      { "title": "TIRE STATUS", "subtitle": "All Good", "data": ["tireTempFL", "tireTempFR", "tireTempRL", "tireTempRR", "tirePressureFL", "tirePressureFR", "tirePressureRL", "tirePressureRR"], "button": "DETAILS" },
+      { "title": "ENGINE TEMP", "subtitle": "Normal", "data": ["coolantTemp", "oilTemp", "engineTemp"], "button": "DETAILS" },
+      { "title": "FUEL LEVEL", "subtitle": "combustivelPorcentagem", "data": ["fuelPercent", "fuelLiters", "fuelCapacity"], "button": "DETAILS" },
+      { "title": "G-FORCE", "subtitle": "lateral/longitudinal", "data": ["gForceLat", "gForceLong", "acceleration"], "button": "RESET" },
+      { "title": "BOOST PRESSURE", "subtitle": "turbo", "data": ["turbo", "boostPressure"], "button": "DETAILS" },
+      { "title": "TRACK MAP", "subtitle": "pista", "data": ["position.x", "position.y", "position.z", "trackCoordinates", "trackLength"], "button": "VIEW" }
+    ]
+  },
+  "checkbox_behavior": {
+    "enabled": true,
+    "rules": [
+      "Cada check ativa/desativa a função do card.",
+      "Quando desativado, o card continua no mesmo lugar para não quebrar o layout, mas mostra estado OFF/disabled discreto.",
+      "Salvar preferências dos checks em localStorage/SharedPreferences.",
+      "Ao reabrir o app, restaurar os cards selecionados.",
+      "Não parar a telemetria geral quando um card for desativado; apenas ocultar/congelar a leitura daquele card."
+    ]
+  },
+  "data_safety": {
+    "rules": [
+      "Não apagar sessões salvas.",
+      "Não zerar últimos valores válidos quando o pacote vier vazio/null/undefined/NaN.",
+      "Manter último valor válido nos campos críticos: velocidade máxima, melhor volta, última volta, tempo total, voltas corrigidas, combustível, posição do mapa.",
+      "Se algum dado não existir no Bridge, mostrar -- mantendo o visual do card."
+    ]
+  },
+  "minhas_pistas": {
+    "enabled": true,
+    "safe_scope": "Adicionar apenas salvamento e leitura, sem alterar o dashboard visual.",
+    "save_on": "Botão SALVAR SESSÃO",
+    "storage": "SharedPreferences/localStorage conforme a base atual do app",
+    "fields_to_save": ["pista", "carro", "modelo", "melhorVolta", "ultimaVolta", "tempoTotal", "velocidadeMaxima", "voltasCorrigidas", "combustivel", "data", "telemetriaCompleta"],
+    "rules": [
+      "Habilitar Minhas Pistas para listar dados salvos.",
+      "Não substituir nem apagar dados antigos.",
+      "Agrupar sessões por pista quando houver nome de pista.",
+      "Se pista estiver vazia, salvar como Pista não identificada.",
+      "Minhas Pistas deve ser uma leitura dos dados salvos, não deve travar o dashboard."
+    ]
+  },
+  "acceptance_tests": [
+    "O dashboard abre com visual igual à referência.",
+    "Nenhum elemento visual muda de posição.",
+    "A velocidade central muda com a telemetria.",
+    "RPM move o arco/conta-giros sem agulha, mantendo estilo da referência.",
+    "Marcha aparece abaixo da velocidade.",
+    "Fuel Level atualiza com combustível.",
+    "Lap Timer atualiza melhor volta, última volta e volta atual.",
+    "Checks salvam a escolha e restauram ao abrir o app.",
+    "Desmarcar um check não trava o app.",
+    "Salvar Sessão grava dados em Minhas Pistas.",
+    "Reabrir o app mantém dados de Minhas Pistas.",
+    "Campos ausentes mostram -- sem quebrar layout."
+  ],
+  "do_not_do": [
+    "Não recriar tela branca.",
+    "Não simplificar o dashboard.",
+    "Não mudar o visual da referência.",
+    "Não mexer na conexão Bridge que já funcionava.",
+    "Não aplicar mudanças grandes em uma única etapa sem preservar backup.",
+    "Não mostrar código ou preview no chat."
+  ]
+}
