@@ -8,6 +8,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
@@ -18,11 +19,12 @@ import android.os.Looper;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.GridLayout;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.Space;
 import android.widget.TextView;
@@ -35,42 +37,40 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
-import java.util.Random;
 
 public class MainActivity extends Activity {
-    private static final String VERSION = "1.59";
+    private static final String VERSION = "1.6.0";
     private static final String BRIDGE_URL = "http://192.168.1.70:8787";
     private static final String PREF = "gt7_bridge_mobile";
     private static final String KEY_PS5_IP = "ps5_ip";
     private static final String KEY_SESSIONS = "gt7_saved_sessions";
+    private static final String KEY_CARD_PREFIX = "card_metric_";
     private static final String DEFAULT_PS5_IP = "192.168.1.54";
 
-    private static final int BG = Color.parseColor("#02050A");
-    private static final int CARD = Color.parseColor("#0B1726");
-    private static final int CARD_DARK = Color.parseColor("#050911");
-    private static final int STROKE = Color.parseColor("#1A2F4A");
-    private static final int TXT = Color.parseColor("#F5F8FF");
-    private static final int MUTED = Color.parseColor("#98A6B8");
-    private static final int BLUE = Color.parseColor("#1E88FF");
-    private static final int CYAN = Color.parseColor("#12E8FF");
-    private static final int GREEN = Color.parseColor("#22F5A2");
-    private static final int YELLOW = Color.parseColor("#FFD35A");
-    private static final int PURPLE = Color.parseColor("#A86BFF");
-    private static final int RED = Color.parseColor("#FF315E");
-    private static final int ORANGE = Color.parseColor("#FF9E28");
+    private static final int BG = Color.parseColor("#02070D");
+    private static final int PANEL = Color.parseColor("#06111D");
+    private static final int PANEL_2 = Color.parseColor("#081A2A");
+    private static final int STROKE = Color.parseColor("#1B4D78");
+    private static final int TXT = Color.parseColor("#F6FAFF");
+    private static final int MUTED = Color.parseColor("#9CADBE");
+    private static final int BLUE = Color.parseColor("#159BFF");
+    private static final int CYAN = Color.parseColor("#16E6FF");
+    private static final int GREEN = Color.parseColor("#37F06B");
+    private static final int RED = Color.parseColor("#FF3358");
+    private static final int ORANGE = Color.parseColor("#FF9A2F");
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private Telemetry t = new Telemetry();
     private Health h = new Health();
 
-    private TextView statusBadge, speedView, maxSpeedView, rpmView, gearView;
-    private TextView throttlePct, brakePct, fuelL, fuelPct, raceState, pitStops;
-    private TextView bestLap, lastLap, correctedLaps, rawLaps, totalTime;
-    private TextView carCode, turbo, oil, vectors, rotation, angular;
-    private ProgressBar throttleBar, brakeBar;
-    private GaugeView gauge;
+    private TextView connection, bridgeIp, ps5Ip, selectedInfo;
+    private TextView rpmValue, speedValue, gearValue, totalTimeValue, autonomyValue, fuelValue;
+    private RpmGaugeView rpmGauge;
+    private AccelChartView accelChart;
+    private final ArrayList<MetricCard> cards = new ArrayList<>();
 
     private long lastLapChange = 0, lastActive = 0;
     private int lastLaps = 0;
@@ -86,6 +86,8 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
         buildUi();
         handler.post(tick);
     }
@@ -102,366 +104,340 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         LinearLayout root = vBox();
-        root.setPadding(dp(12), dp(10), dp(12), dp(112));
+        root.setPadding(dp(14), dp(12), dp(14), dp(20));
         scroll.addView(root, new ScrollView.LayoutParams(-1, -2));
         screen.addView(scroll, new FrameLayout.LayoutParams(-1, -1));
 
-        root.addView(topBar());
-        root.addView(heroPanel());
-        root.addView(progressRow());
-        root.addView(statusRow());
-        root.addView(resultsSection());
-        root.addView(advancedSection());
-        screen.addView(bottomNav(), bottomLp());
+        root.addView(header());
+        root.addView(statusStrip());
+        root.addView(rpmPanel());
+        root.addView(primaryCards());
+        root.addView(configurableCards());
+        root.addView(accelerationPanel());
+        root.addView(buttonBar());
 
         setContentView(screen);
     }
 
-    private View topBar() {
+    private View header() {
         LinearLayout row = hRow();
         row.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(48));
-        lp.setMargins(0, dp(2), 0, dp(14));
-        row.setLayoutParams(lp);
+        row.setPadding(0, 0, 0, 0);
+        row.setLayoutParams(marginLp(-1, dp(54), 0, 0, 0, dp(12)));
 
-        TextView menu = iconBox("☰", 26);
-        menu.setOnClickListener(v -> editPs5Ip());
+        TextView menu = icon("☰", 28);
+        menu.setOnClickListener(v -> showMenu());
         row.addView(menu, new LinearLayout.LayoutParams(dp(42), dp(42)));
 
-        LinearLayout title = box(CARD_DARK, 10, STROKE, 1);
-        title.setGravity(Gravity.CENTER_VERTICAL);
-        title.setPadding(dp(14), 0, dp(12), 0);
-        TextView tx = text("TELEMETRIA", 17, TXT, true);
-        tx.setLetterSpacing(.05f);
-        title.addView(tx);
-        title.addView(text("• AO VIVO", 11, GREEN, true));
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(0, dp(42), 1);
-        titleLp.setMargins(dp(6), 0, dp(6), 0);
-        row.addView(title, titleLp);
+        TextView logo = text("GT", 32, TXT, true);
+        logo.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(dp(62), dp(42));
+        glp.setMargins(dp(10), 0, 0, 0);
+        row.addView(logo, glp);
 
-        statusBadge = text("🎮  CONECTANDO\nAO PS5", 10, GREEN, true);
-        statusBadge.setGravity(Gravity.CENTER);
-        statusBadge.setBackground(round(Color.parseColor("#083226"), 13, Color.parseColor("#0F6247"), 1));
-        row.addView(statusBadge, new LinearLayout.LayoutParams(dp(112), dp(42)));
+        LinearLayout titleBox = vBox();
+        TextView title = text("GT7 BRIDGE", 22, TXT, true);
+        title.setLetterSpacing(.04f);
+        titleBox.addView(title);
+        TextView sub = text("APP PERFORMANCE DASHBOARD", 10, MUTED, true);
+        sub.setLetterSpacing(.08f);
+        titleBox.addView(sub);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(0, -2, 1);
+        tlp.setMargins(dp(8), 0, 0, 0);
+        row.addView(titleBox, tlp);
 
-        TextView more = iconBox("⋮", 28);
-        more.setOnClickListener(v -> showQuickInfo());
-        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(dp(42), dp(42));
-        mlp.setMargins(dp(6), 0, 0, 0);
-        row.addView(more, mlp);
+        connection = text("●  CONECTANDO", 13, GREEN, true);
+        connection.setGravity(Gravity.CENTER);
+        connection.setBackground(round(Color.parseColor("#082A25"), 14, Color.parseColor("#124C45"), 1));
+        row.addView(connection, new LinearLayout.LayoutParams(dp(132), dp(42)));
+
+        TextView gear = icon("⚙", 24);
+        gear.setOnClickListener(v -> editPs5Ip());
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(42), dp(42));
+        lp.setMargins(dp(8), 0, 0, 0);
+        row.addView(gear, lp);
         return row;
     }
 
-    private View heroPanel() {
+    private View statusStrip() {
+        LinearLayout box = hRow();
+        box.setPadding(dp(14), dp(10), dp(14), dp(10));
+        box.setBackground(round(PANEL, 16, STROKE, 1));
+        box.setLayoutParams(marginLp(-1, dp(82), 0, 0, 0, dp(12)));
+
+        bridgeIp = infoBlock(box, "BRIDGE", BRIDGE_URL.replace("http://", ""));
+        addDivider(box);
+        ps5Ip = infoBlock(box, "PS5", getPs5Ip());
+        addDivider(box);
+        selectedInfo = infoBlock(box, "TELEMETRIA", "12/25 selecionados  ›");
+        selectedInfo.setOnClickListener(v -> showFieldsInfo());
+        box.setOnClickListener(v -> showFieldsInfo());
+        return box;
+    }
+
+    private TextView infoBlock(LinearLayout parent, String label, String value) {
+        LinearLayout b = vBox();
+        b.setGravity(Gravity.CENTER_VERTICAL);
+        b.addView(text(label, 11, MUTED, false));
+        TextView val = text(value, 15, CYAN, false);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
+        vlp.setMargins(0, dp(6), 0, 0);
+        b.addView(val, vlp);
+        parent.addView(b, new LinearLayout.LayoutParams(0, -1, 1));
+        return val;
+    }
+
+    private void addDivider(LinearLayout parent) {
+        View d = new View(this);
+        d.setBackgroundColor(Color.parseColor("#234965"));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(1), -1);
+        lp.setMargins(dp(10), 0, dp(16), 0);
+        parent.addView(d, lp);
+    }
+
+    private View rpmPanel() {
+        LinearLayout panel = vBox();
+        panel.setPadding(dp(16), dp(14), dp(16), dp(10));
+        panel.setBackground(round(PANEL, 16, STROKE, 1));
+        panel.setLayoutParams(marginLp(-1, dp(270), 0, 0, 0, dp(12)));
+
+        LinearLayout top = hRow();
+        top.addView(text("CONTA GIROS", 18, TXT, true), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView selector = smallButton("RPM  ˅");
+        selector.setOnClickListener(v -> Toast.makeText(this, "Conta giros fixo em RPM", Toast.LENGTH_SHORT).show());
+        top.addView(selector, new LinearLayout.LayoutParams(dp(112), dp(38)));
+        panel.addView(top);
+
+        FrameLayout gaugeBox = new FrameLayout(this);
+        rpmGauge = new RpmGaugeView(this);
+        gaugeBox.addView(rpmGauge, new FrameLayout.LayoutParams(-1, -1));
+
+        LinearLayout center = vBox();
+        center.setGravity(Gravity.CENTER);
+        rpmValue = text("0", 40, TXT, true);
+        rpmValue.setGravity(Gravity.CENTER);
+        center.addView(rpmValue);
+        TextView rpmLbl = text("RPM", 13, MUTED, true);
+        rpmLbl.setGravity(Gravity.CENTER);
+        center.addView(rpmLbl);
+        speedValue = text("0 km/h", 18, CYAN, true);
+        speedValue.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, -2);
+        slp.setMargins(0, dp(10), 0, 0);
+        center.addView(speedValue, slp);
+        gaugeBox.addView(center, new FrameLayout.LayoutParams(-1, -1));
+
+        panel.addView(gaugeBox, new LinearLayout.LayoutParams(-1, 0, 1));
+        return panel;
+    }
+
+    private View primaryCards() {
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(2);
+        grid.setLayoutParams(marginLp(-1, -2, 0, 0, 0, dp(4)));
+
+        gearValue = quickCard(grid, "MARCHA", "N", "MARCHA", BLUE);
+        fuelValue = quickCard(grid, "COMBUSTÍVEL", "-- L", "LITROS", CYAN);
+        totalTimeValue = quickCard(grid, "TEMPO TOTAL", "--", "Soma das voltas certas", TXT);
+        autonomyValue = quickCard(grid, "AUTONOMIA", "--", "Estimado pelo consumo atual", GREEN);
+        return grid;
+    }
+
+    private TextView quickCard(GridLayout grid, String title, String value, String sub, int color) {
+        LinearLayout c = cardBase();
+        LinearLayout head = hRow();
+        head.addView(text(title, 16, TXT, true), new LinearLayout.LayoutParams(0, -2, 1));
+        head.addView(smallButton(sub.length() > 9 ? "INFO" : sub), new LinearLayout.LayoutParams(dp(86), dp(34)));
+        c.addView(head);
+        TextView val = text(value, 34, color, true);
+        val.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, 0, 1);
+        vlp.setMargins(0, dp(10), 0, 0);
+        c.addView(val, vlp);
+        TextView subT = text(sub, 13, MUTED, false);
+        subT.setGravity(Gravity.CENTER);
+        c.addView(subT);
+        grid.addView(c, gridLp(dp(134)));
+        return val;
+    }
+
+    private View configurableCards() {
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(2);
+        String[] defaults = new String[]{"velocidade", "melhorVolta", "ultimaVolta", "voltasCorrigidas", "freio", "acelerador", "codigoCarro", "paradasBoxes"};
+        for (int i = 0; i < defaults.length; i++) {
+            String metric = getPrefs().getString(KEY_CARD_PREFIX + i, defaults[i]);
+            MetricCard card = new MetricCard(i, metric);
+            cards.add(card);
+            grid.addView(card.view, gridLp(dp(116)));
+        }
+        return grid;
+    }
+
+    private View accelerationPanel() {
+        LinearLayout panel = vBox();
+        panel.setPadding(dp(16), dp(12), dp(16), dp(16));
+        panel.setBackground(round(PANEL, 16, STROKE, 1));
+        panel.setLayoutParams(marginLp(-1, dp(260), 0, dp(8), 0, dp(12)));
+        LinearLayout top = hRow();
+        top.addView(text("ACELERAÇÃO", 17, TXT, true), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView selector = smallButton("G LONGITUDINAL ˅");
+        selector.setOnClickListener(v -> Toast.makeText(this, "Gráfico usando acelerador x freio", Toast.LENGTH_SHORT).show());
+        top.addView(selector, new LinearLayout.LayoutParams(dp(154), dp(38)));
+        panel.addView(top);
+        accelChart = new AccelChartView(this);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 0, 1);
+        lp.setMargins(0, dp(8), 0, 0);
+        panel.addView(accelChart, lp);
+        return panel;
+    }
+
+    private View buttonBar() {
         LinearLayout row = hRow();
         row.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(226));
-        lp.setMargins(0, 0, 0, dp(8));
-        row.setLayoutParams(lp);
-
-        LinearLayout left = sideGauge("RPM", PURPLE, false);
-        rpmView = (TextView) left.findViewWithTag("value");
-        row.addView(left, new LinearLayout.LayoutParams(dp(76), dp(160)));
-
-        FrameLayout center = new FrameLayout(this);
-        gauge = new GaugeView(this);
-        center.addView(gauge, new FrameLayout.LayoutParams(-1, -1));
-
-        LinearLayout overlay = vBox();
-        overlay.setGravity(Gravity.CENTER);
-        speedView = text("0", 60, TXT, true);
-        speedView.setGravity(Gravity.CENTER);
-        speedView.setIncludeFontPadding(false);
-        overlay.addView(speedView);
-        TextView kmh = text("km/h", 12, TXT, true);
-        kmh.setGravity(Gravity.CENTER);
-        overlay.addView(kmh);
-        TextView vel = text("VELOCIDADE", 10, MUTED, true);
-        vel.setGravity(Gravity.CENTER);
-        vel.setLetterSpacing(.08f);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
-        vlp.setMargins(0, dp(8), 0, 0);
-        overlay.addView(vel, vlp);
-        maxSpeedView = text("0 km/h", 18, YELLOW, true);
-        maxSpeedView.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams mlp = new LinearLayout.LayoutParams(-1, -2);
-        mlp.setMargins(0, dp(8), 0, 0);
-        overlay.addView(maxSpeedView, mlp);
-        TextView maxLabel = text("MÁXIMA", 10, MUTED, true);
-        maxLabel.setGravity(Gravity.CENTER);
-        overlay.addView(maxLabel);
-
-        center.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, dp(222), 1);
-        clp.setMargins(dp(4), 0, dp(4), 0);
-        row.addView(center, clp);
-
-        LinearLayout right = sideGauge("MARCHA", GREEN, true);
-        gearView = (TextView) right.findViewWithTag("value");
-        row.addView(right, new LinearLayout.LayoutParams(dp(76), dp(160)));
-        return row;
-    }
-
-    private LinearLayout sideGauge(String label, int color, boolean bars) {
-        LinearLayout card = box(CARD_DARK, 23, STROKE, 1);
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(8), dp(10), dp(8), dp(10));
-        card.addView(text(label, 10, MUTED, true));
-        TextView v = text(bars ? "N" : "0", 31, TXT, true);
-        v.setTag("value");
-        v.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
-        vlp.setMargins(0, dp(8), 0, 0);
-        card.addView(v, vlp);
-        if (!bars) {
-            TextView rpmUnit = text("rpm", 10, MUTED, true);
-            rpmUnit.setGravity(Gravity.CENTER);
-            card.addView(rpmUnit);
+        row.setLayoutParams(marginLp(-1, dp(54), 0, 0, 0, dp(8)));
+        String[] labels = {"SALVAR", "HISTÓRICO", "DEBUG", "CANDIDATOS"};
+        for (String l : labels) {
+            TextView b = smallButton(l);
+            b.setTextColor(TXT);
+            b.setOnClickListener(v -> {
+                String s = ((TextView)v).getText().toString();
+                if (s.equals("SALVAR")) { saveSession("manual"); Toast.makeText(this, "Sessão salva", Toast.LENGTH_SHORT).show(); }
+                else if (s.equals("HISTÓRICO")) showHistory();
+                else if (s.equals("DEBUG")) fetchDialog("Debug", BRIDGE_URL + "/api/debug");
+                else fetchDialog("Candidates", BRIDGE_URL + "/api/candidates");
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(46), 1);
+            lp.setMargins(dp(3), 0, dp(3), 0);
+            row.addView(b, lp);
         }
-        SparkView sp = new SparkView(this, color, bars ? 2 : 1);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, dp(36));
-        slp.setMargins(0, dp(10), 0, 0);
-        card.addView(sp, slp);
-        return card;
-    }
-
-    private View progressRow() {
-        LinearLayout row = hRow();
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(64));
-        lp.setMargins(0, 0, 0, dp(8));
-        row.setLayoutParams(lp);
-        row.addView(progressCard("ACELERADOR", CYAN, true), new LinearLayout.LayoutParams(0, -1, 1));
-        row.addView(space(8, 1));
-        row.addView(progressCard("FREIO", RED, false), new LinearLayout.LayoutParams(0, -1, 1));
         return row;
     }
 
-    private View progressCard(String label, int color, boolean throttle) {
-        LinearLayout c = box(CARD_DARK, 18, STROKE, 1);
-        c.setPadding(dp(14), dp(10), dp(14), dp(9));
-        LinearLayout head = hRow();
-        head.addView(text(label, 10, MUTED, true), new LinearLayout.LayoutParams(0, -2, 1));
-        TextView pct = text("0%", 15, color, true);
-        head.addView(pct);
-        c.addView(head);
-        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        bar.setMax(100);
-        bar.setProgress(0);
-        bar.getProgressDrawable().setTint(color);
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, dp(9));
-        blp.setMargins(0, dp(12), 0, 0);
-        c.addView(bar, blp);
-        if (throttle) { throttlePct = pct; throttleBar = bar; } else { brakePct = pct; brakeBar = bar; }
+    private LinearLayout cardBase() {
+        LinearLayout c = vBox();
+        c.setPadding(dp(14), dp(12), dp(14), dp(12));
+        c.setBackground(round(PANEL, 15, STROKE, 1));
         return c;
     }
 
-    private View statusRow() {
-        LinearLayout row = hRow();
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(74));
-        lp.setMargins(0, 0, 0, dp(12));
-        row.setLayoutParams(lp);
-        row.addView(statusMini("⛽", "COMBUSTÍVEL", true), new LinearLayout.LayoutParams(0, -1, 1));
-        row.addView(space(6, 1));
-        row.addView(statusMini("⛽", "COMBUSTÍVEL %", false), new LinearLayout.LayoutParams(0, -1, 1));
-        row.addView(space(6, 1));
-        row.addView(stateMini(), new LinearLayout.LayoutParams(0, -1, 1));
-        row.addView(space(6, 1));
-        row.addView(pitMini(), new LinearLayout.LayoutParams(0, -1, 1));
-        return row;
-    }
-
-    private LinearLayout statusMini(String icon, String label, boolean liters) {
-        LinearLayout c = box(CARD, 10, STROKE, 1);
-        c.setPadding(dp(9), dp(8), dp(9), dp(8));
-        c.addView(text(icon + "  " + label, 9, MUTED, true));
-        TextView v = text(liters ? "-- L" : "--%", 17, TXT, true);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
-        vlp.setMargins(0, dp(7), 0, 0);
-        c.addView(v, vlp);
-        View line = new View(this);
-        line.setBackgroundColor(BLUE);
-        LinearLayout.LayoutParams l = new LinearLayout.LayoutParams(-1, dp(4));
-        l.setMargins(0, dp(8), 0, 0);
-        c.addView(line, l);
-        if (liters) fuelL = v; else fuelPct = v;
-        return c;
-    }
-
-    private LinearLayout stateMini() {
-        LinearLayout c = box(CARD, 10, STROKE, 1);
-        c.setPadding(dp(9), dp(12), dp(9), dp(8));
-        c.addView(text("ESTADO DA CORRIDA", 9, BLUE, true));
-        raceState = text("AGUARDANDO", 14, GREEN, true);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.setMargins(0, dp(9), 0, 0);
-        c.addView(raceState, lp);
-        return c;
-    }
-
-    private LinearLayout pitMini() {
-        LinearLayout c = box(CARD, 10, STROKE, 1);
-        c.setPadding(dp(9), dp(12), dp(9), dp(8));
-        c.addView(text("PARADAS BOXES", 9, MUTED, true));
-        pitStops = text("--", 17, TXT, true);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.setMargins(0, dp(9), 0, 0);
-        c.addView(pitStops, lp);
-        return c;
-    }
-
-    private View resultsSection() {
-        LinearLayout sec = sectionBox("⚑", "VOLTAS & RESULTADOS", "VER DETALHES  ›");
-        LinearLayout cards = hRow();
-        cards.setGravity(Gravity.CENTER);
-        bestLap = addResultCard(cards, "MELHOR VOLTA", "--", PURPLE, true);
-        lastLap = addResultCard(cards, "ÚLTIMA VOLTA", "--", TXT, false);
-        correctedLaps = addResultCard(cards, "VOLTAS\nCORRIGIDAS", "0", BLUE, false);
-        rawLaps = addResultCard(cards, "VOLTAS BRUTAS", "0", TXT, false);
-        totalTime = addResultCard(cards, "TEMPO TOTAL", "--", CYAN, false);
-        sec.addView(cards, new LinearLayout.LayoutParams(-1, dp(92)));
-        return sec;
-    }
-
-    private TextView addResultCard(LinearLayout row, String label, String value, int color, boolean glow) {
-        LinearLayout c = box(glow ? Color.parseColor("#120B25") : CARD_DARK, 12, glow ? PURPLE : STROKE, 1);
-        c.setPadding(dp(8), dp(9), dp(8), dp(6));
-        c.addView(text(label, 9, color, true));
-        TextView v = text(value, 18, color == TXT ? TXT : color, true);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
-        vlp.setMargins(0, dp(8), 0, 0);
-        c.addView(v, vlp);
-        SparkView sp = new SparkView(this, color == TXT ? MUTED : color, 3);
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(-1, dp(20));
-        slp.setMargins(0, dp(5), 0, 0);
-        c.addView(sp, slp);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, -1, 1);
-        lp.setMargins(dp(3), 0, dp(3), 0);
-        row.addView(c, lp);
-        return v;
-    }
-
-    private View advancedSection() {
-        LinearLayout sec = sectionBox("〽", "TELEMETRIA AVANÇADA", "⚙  CONFIGURAR  ›");
-        carCode = addAdvRow(sec, "CÓDIGO DO CARRO", "--", "▱", YELLOW, "PRESSÃO DO TURBO", "--", "◉", PURPLE);
-        turbo = (TextView) sec.findViewWithTag("PRESSÃO DO TURBO");
-        oil = addAdvRow(sec, "PRESSÃO DO ÓLEO", "--", "⌁", ORANGE, "VETORES VELOCIDADE", "--", "⊙", GREEN);
-        vectors = (TextView) sec.findViewWithTag("VETORES VELOCIDADE");
-        rotation = addAdvRow(sec, "ROTAÇÃO PITCH/\nROLL/YAW", "--", "⟲", PURPLE, "VELOCIDADE ANGULAR", "--", "⊙", CYAN);
-        angular = (TextView) sec.findViewWithTag("VELOCIDADE ANGULAR");
-        return sec;
-    }
-
-    private TextView addAdvRow(LinearLayout sec, String l1, String v1, String i1, int c1, String l2, String v2, String i2, int c2) {
-        LinearLayout row = hRow();
-        LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, dp(82));
-        rlp.setMargins(0, dp(7), 0, 0);
-        row.setLayoutParams(rlp);
-        LinearLayout cA = advCard(l1, v1, i1, c1);
-        TextView first = (TextView)cA.findViewWithTag(l1);
-        row.addView(cA, new LinearLayout.LayoutParams(0, -1, 1));
-        row.addView(space(7, 1));
-        row.addView(advCard(l2, v2, i2, c2), new LinearLayout.LayoutParams(0, -1, 1));
-        sec.addView(row);
-        return first;
-    }
-
-    private LinearLayout advCard(String label, String value, String icon, int color) {
-        LinearLayout c = box(CARD_DARK, 10, STROKE, 1);
-        c.setPadding(dp(10), dp(9), dp(10), dp(6));
-        LinearLayout head = hRow();
-        head.addView(text(label, 9, MUTED, true), new LinearLayout.LayoutParams(0, -2, 1));
-        head.addView(text(icon, 25, color, true));
-        c.addView(head);
-        TextView v = text(value, 17, TXT, true);
-        v.setTag(label);
-        LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, -2);
-        vlp.setMargins(0, dp(4), 0, 0);
-        c.addView(v, vlp);
-        SparkView sp = new SparkView(this, color, 4);
-        c.addView(sp, new LinearLayout.LayoutParams(-1, dp(18)));
-        return c;
-    }
-
-    private LinearLayout sectionBox(String icon, String title, String action) {
-        LinearLayout sec = box(Color.parseColor("#07111E"), 13, STROKE, 1);
-        sec.setPadding(dp(11), dp(11), dp(11), dp(11));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
-        lp.setMargins(0, 0, 0, dp(12));
-        sec.setLayoutParams(lp);
-        LinearLayout head = hRow();
-        head.addView(text(icon + "  " + title, 14, TXT, true), new LinearLayout.LayoutParams(0, -2, 1));
-        TextView btn = text(action, 10, TXT, true);
-        btn.setGravity(Gravity.CENTER);
-        btn.setBackground(round(Color.parseColor("#0B1728"), 9, STROKE, 1));
-        btn.setOnClickListener(v -> showQuickInfo());
-        head.addView(btn, new LinearLayout.LayoutParams(dp(108), dp(34)));
-        LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(-1, -2);
-        hlp.setMargins(0, 0, 0, dp(10));
-        sec.addView(head, hlp);
-        return sec;
-    }
-
-    private FrameLayout bottomNav() {
-        FrameLayout wrap = new FrameLayout(this);
-        LinearLayout nav = hRow();
-        nav.setGravity(Gravity.CENTER);
-        nav.setPadding(dp(10), 0, dp(10), 0);
-        nav.setBackground(round(Color.parseColor("#07111D"), 12, STROKE, 1));
-        wrap.addView(nav, new FrameLayout.LayoutParams(-1, dp(70), Gravity.BOTTOM));
-
-        nav.addView(navItem("▦", "DASHBOARD", true), new LinearLayout.LayoutParams(0, -1, 1));
-        nav.addView(navItem("⏱", "VOLTAS", false), new LinearLayout.LayoutParams(0, -1, 1));
-        nav.addView(new Space(this), new LinearLayout.LayoutParams(dp(96), -1));
-        nav.addView(navItem("〽", "TELEMETRIA", false), new LinearLayout.LayoutParams(0, -1, 1));
-        nav.addView(navItem("⚙", "CONFIGURAÇÕES", false), new LinearLayout.LayoutParams(0, -1, 1));
-
-        LinearLayout live = vBox();
-        live.setGravity(Gravity.CENTER);
-        live.setBackground(round(Color.parseColor("#111923"), 999, RED, 2));
-        TextView ico = text("◉", 30, TXT, true);
-        ico.setGravity(Gravity.CENTER);
-        live.addView(ico);
-        TextView label = text("AO VIVO", 14, TXT, true);
-        label.setGravity(Gravity.CENTER);
-        live.addView(label);
-        live.setOnClickListener(v -> fetchFields());
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(96), dp(96), Gravity.CENTER | Gravity.BOTTOM);
-        lp.setMargins(0, 0, 0, dp(11));
-        wrap.addView(live, lp);
-        return wrap;
-    }
-
-    private FrameLayout.LayoutParams bottomLp() {
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(-1, dp(116), Gravity.BOTTOM);
-        lp.setMargins(dp(10), 0, dp(10), dp(6));
+    private GridLayout.LayoutParams gridLp(int h) {
+        GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+        lp.width = (getResources().getDisplayMetrics().widthPixels - dp(36)) / 2;
+        lp.height = h;
+        lp.setMargins(0, 0, dp(8), dp(10));
         return lp;
     }
 
-    private LinearLayout navItem(String icon, String label, boolean active) {
-        LinearLayout item = vBox();
-        item.setGravity(Gravity.CENTER);
-        item.addView(text(icon, 25, TXT, true));
-        TextView t = text(label, 10, TXT, true);
-        t.setGravity(Gravity.CENTER);
-        item.addView(t);
-        if (active) {
-            View line = new View(this);
-            line.setBackgroundColor(RED);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(54), dp(4));
-            lp.setMargins(0, dp(5), 0, 0);
-            item.addView(line, lp);
+    private class MetricCard {
+        int index;
+        String metric;
+        LinearLayout view;
+        TextView title, value, selector;
+
+        MetricCard(int index, String metric) {
+            this.index = index;
+            this.metric = metric;
+            view = cardBase();
+            LinearLayout head = hRow();
+            title = text(labelFor(metric), 14, TXT, true);
+            head.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+            selector = smallButton("TROCAR ˅");
+            selector.setOnClickListener(v -> chooseMetric(this));
+            head.addView(selector, new LinearLayout.LayoutParams(dp(92), dp(32)));
+            view.addView(head);
+            value = text("--", 27, CYAN, true);
+            value.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams vlp = new LinearLayout.LayoutParams(-1, 0, 1);
+            vlp.setMargins(0, dp(8), 0, 0);
+            view.addView(value, vlp);
+            TextView hint = text("Campo configurável", 11, MUTED, false);
+            hint.setGravity(Gravity.CENTER);
+            view.addView(hint);
+            view.setOnClickListener(v -> chooseMetric(this));
         }
-        item.setOnClickListener(v -> showQuickInfo());
-        return item;
+
+        void setMetric(String m) {
+            metric = m;
+            title.setText(labelFor(m));
+            getPrefs().edit().putString(KEY_CARD_PREFIX + index, m).apply();
+            update();
+        }
+
+        void update() { value.setText(valueFor(metric)); }
     }
 
-    private void showQuickInfo() {
+    private void chooseMetric(MetricCard c) {
+        final String[] keys = new String[]{"velocidade", "rpm", "marcha", "acelerador", "freio", "combustivel", "combustivelPct", "autonomia", "melhorVolta", "ultimaVolta", "tempoTotal", "voltasCorrigidas", "voltasBrutas", "codigoCarro", "turbo", "oilPressure", "paradasBoxes", "estadoCorrida"};
+        String[] labels = new String[keys.length];
+        for (int i = 0; i < keys.length; i++) labels[i] = labelFor(keys[i]);
         new AlertDialog.Builder(this)
-                .setTitle("GT7 Bridge Mobile v" + VERSION)
-                .setMessage("Bridge: " + BRIDGE_URL + "\nPS5 IP: " + getPs5Ip() + "\n\nO app atualiza a telemetria por /api/fields e mantém o visual no padrão do painel de referência.")
+                .setTitle("Escolher informação do card")
+                .setItems(labels, (d, which) -> c.setMetric(keys[which]))
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private String labelFor(String key) {
+        switch (key) {
+            case "velocidade": return "VELOCIDADE";
+            case "rpm": return "RPM";
+            case "marcha": return "MARCHA";
+            case "acelerador": return "ACELERADOR";
+            case "freio": return "FREIO";
+            case "combustivel": return "COMBUSTÍVEL";
+            case "combustivelPct": return "COMBUSTÍVEL %";
+            case "autonomia": return "AUTONOMIA";
+            case "melhorVolta": return "MELHOR VOLTA";
+            case "ultimaVolta": return "ÚLTIMA VOLTA";
+            case "tempoTotal": return "TEMPO TOTAL";
+            case "voltasCorrigidas": return "VOLTAS CERTAS";
+            case "voltasBrutas": return "VOLTAS BRUTAS";
+            case "codigoCarro": return "CÓDIGO DO CARRO";
+            case "turbo": return "TURBO";
+            case "oilPressure": return "PRESSÃO DO ÓLEO";
+            case "paradasBoxes": return "BOXES";
+            case "estadoCorrida": return "CORRIDA";
+            default: return key.toUpperCase(Locale.ROOT);
+        }
+    }
+
+    private String valueFor(String key) {
+        switch (key) {
+            case "velocidade": return t.velocidade + " km/h";
+            case "rpm": return t.rpm;
+            case "marcha": return t.marcha;
+            case "acelerador": return t.acelerador + "%";
+            case "freio": return t.freio + "%";
+            case "combustivel": return t.combustivel + " L";
+            case "combustivelPct": return t.combustivelPct + "%";
+            case "autonomia": return t.autonomia;
+            case "melhorVolta": return t.melhorVolta;
+            case "ultimaVolta": return t.ultimaVolta;
+            case "tempoTotal": return t.tempoTotal;
+            case "voltasCorrigidas": return t.voltasCorrigidas;
+            case "voltasBrutas": return t.voltasBrutas;
+            case "codigoCarro": return t.codigoCarro;
+            case "turbo": return t.turbo;
+            case "oilPressure": return t.oilPressure;
+            case "paradasBoxes": return t.paradasBoxes;
+            case "estadoCorrida": return t.estadoCorrida;
+            default: return "--";
+        }
+    }
+
+    private void showMenu() {
+        String msg = "Bridge: " + BRIDGE_URL + "\nPS5: " + getPs5Ip() + "\nVersão: " + VERSION + "\n\nLayout novo aplicado: conta giros, cards configuráveis, aceleração em gráfico, tempo total por voltas certas e autonomia estimada.";
+        new AlertDialog.Builder(this)
+                .setTitle("GT7 Bridge Mobile")
+                .setMessage(msg)
                 .setPositiveButton("Editar IP PS5", (d, w) -> editPs5Ip())
                 .setNegativeButton("Fechar", null)
                 .show();
+    }
+
+    private void showFieldsInfo() {
+        fetchDialog("Campos disponíveis", BRIDGE_URL + "/api/fields");
     }
 
     private void editPs5Ip() {
@@ -479,6 +455,7 @@ public class MainActivity extends Activity {
                     if (ip.length() == 0) ip = DEFAULT_PS5_IP;
                     getPrefs().edit().putString(KEY_PS5_IP, ip).apply();
                     t.ps5Ip = ip;
+                    ps5Ip.setText(ip);
                     Toast.makeText(this, "IP do PS5 salvo", Toast.LENGTH_SHORT).show();
                     fetchFields();
                 })
@@ -486,23 +463,40 @@ public class MainActivity extends Activity {
                 .show();
     }
 
+    private void fetchDialog(String title, String url) {
+        fetchText(url, text -> new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(text.length() > 3500 ? text.substring(0, 3500) + "..." : text)
+                .setPositiveButton("OK", null)
+                .show());
+    }
+
+    private void showHistory() {
+        try {
+            JSONArray arr = new JSONArray(getPrefs().getString(KEY_SESSIONS, "[]"));
+            if (arr.length() == 0) { Toast.makeText(this, "Sem sessões salvas", Toast.LENGTH_SHORT).show(); return; }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < Math.min(10, arr.length()); i++) {
+                JSONObject o = arr.getJSONObject(i);
+                sb.append(i + 1).append(". ").append(o.optString("dataFim", "--")).append("\n");
+                sb.append("Voltas: ").append(o.optString("voltasCorrigidas", "0")).append(" | Melhor: ").append(o.optString("melhorVolta", "--")).append("\n");
+                sb.append("Máxima: ").append(o.optString("velocidadeMaxima", "0")).append(" km/h | Carro: ").append(o.optString("codigoCarro", "--")).append("\n\n");
+            }
+            new AlertDialog.Builder(this).setTitle("Histórico").setMessage(sb.toString()).setPositiveButton("OK", null).show();
+        } catch (Exception e) { Toast.makeText(this, "Erro ao abrir histórico", Toast.LENGTH_SHORT).show(); }
+    }
+
     private void fetchFields() { fetchJson(BRIDGE_URL + "/api/fields", obj -> { t.fromJson(obj, getPs5Ip()); applyTelemetry(); }); }
     private void fetchHealth(boolean toast) { fetchJson(BRIDGE_URL + "/api/health", obj -> { h.fromJson(obj); if (toast) Toast.makeText(this, "Health atualizado", Toast.LENGTH_SHORT).show(); }); }
 
     private interface JsonCb { void ok(JSONObject obj) throws Exception; }
+    private interface TextCb { void ok(String text); }
 
     private void fetchJson(String url, JsonCb cb) {
         new Thread(() -> {
             try {
-                HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
-                conn.setConnectTimeout(1200);
-                conn.setReadTimeout(1200);
-                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-                JSONObject obj = new JSONObject(sb.toString());
+                String s = httpGet(url);
+                JSONObject obj = new JSONObject(s);
                 handler.post(() -> { try { cb.ok(obj); } catch (Exception ignored) {} });
             } catch (Exception e) {
                 handler.post(() -> { if (url.contains("/api/fields")) { t.offline(); applyTelemetry(); } });
@@ -510,35 +504,41 @@ public class MainActivity extends Activity {
         }).start();
     }
 
-    private void applyTelemetry() {
-        statusBadge.setText(t.connected ? (t.decodeOk ? "🎮  CONECTADO\nAO PS5" : "🎮  ONLINE\nPACOTE") : "🎮  OFFLINE\nAO PS5");
-        statusBadge.setTextColor(t.connected ? (t.decodeOk ? GREEN : YELLOW) : RED);
-        statusBadge.setBackground(round(t.connected ? Color.parseColor("#083226") : Color.parseColor("#2C1118"), 13, t.connected ? Color.parseColor("#0F6247") : Color.parseColor("#653041"), 1));
+    private void fetchText(String url, TextCb cb) {
+        new Thread(() -> {
+            try { String s = httpGet(url); handler.post(() -> cb.ok(s)); }
+            catch (Exception e) { handler.post(() -> cb.ok("Erro ao acessar: " + url + "\n" + e.getMessage())); }
+        }).start();
+    }
 
-        speedView.setText(t.velocidade);
-        maxSpeedView.setText(t.velocidadeMaxima + " km/h");
-        rpmView.setText(t.rpm);
-        gearView.setText(t.marcha);
-        throttlePct.setText(t.acelerador + "%");
-        brakePct.setText(t.freio + "%");
-        throttleBar.setProgress(t.acelerador);
-        brakeBar.setProgress(t.freio);
-        fuelL.setText(t.combustivel + " L");
-        fuelPct.setText(t.combustivelPct + "%");
-        raceState.setText(t.estadoCorrida);
-        pitStops.setText(t.paradasBoxes);
-        bestLap.setText(t.melhorVolta);
-        lastLap.setText(t.ultimaVolta);
-        correctedLaps.setText(t.voltasCorrigidas);
-        rawLaps.setText(t.voltasBrutas);
-        totalTime.setText(t.tempoTotal);
-        carCode.setText(t.codigoCarro);
-        turbo.setText(t.turbo);
-        oil.setText(t.oilPressure);
-        vectors.setText(t.speedVector);
-        rotation.setText(t.rotation);
-        angular.setText(t.angularVelocity);
-        gauge.setValues(num(t.velocidade), num(t.rpm));
+    private String httpGet(String url) throws Exception {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setConnectTimeout(1500);
+        conn.setReadTimeout(1500);
+        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) sb.append(line);
+        br.close();
+        return sb.toString();
+    }
+
+    private void applyTelemetry() {
+        connection.setText(t.connected ? (t.decodeOk ? "●  CONECTADO" : "●  ONLINE") : "●  OFFLINE");
+        connection.setTextColor(t.connected ? GREEN : RED);
+        connection.setBackground(round(t.connected ? Color.parseColor("#082A25") : Color.parseColor("#2A0B14"), 14, t.connected ? Color.parseColor("#124C45") : Color.parseColor("#6D2438"), 1));
+        ps5Ip.setText(getPs5Ip());
+        selectedInfo.setText((t.packetSize > 0 ? t.packetSize : 25) + " campos  ›");
+
+        rpmValue.setText(t.rpm);
+        speedValue.setText(t.velocidade + " km/h");
+        gearValue.setText(t.marcha);
+        fuelValue.setText(t.combustivel + " L");
+        totalTimeValue.setText(t.tempoTotal);
+        autonomyValue.setText(t.autonomia);
+        rpmGauge.setValues(num(t.rpm), num(t.velocidade));
+        accelChart.push((t.acelerador - t.freio) / 100f);
+        for (MetricCard c : cards) c.update();
         updateSessionState();
     }
 
@@ -566,6 +566,7 @@ public class MainActivity extends Activity {
             o.put("codigoCarro", t.codigoCarro);
             o.put("melhorVolta", t.melhorVolta);
             o.put("ultimaVolta", t.ultimaVolta);
+            o.put("tempoTotal", t.tempoTotal);
             o.put("voltasCorrigidas", t.voltasCorrigidas);
             o.put("velocidadeMaxima", t.velocidadeMaxima);
             JSONArray old = new JSONArray(getPrefs().getString(KEY_SESSIONS, "[]"));
@@ -584,41 +585,12 @@ public class MainActivity extends Activity {
 
     private LinearLayout vBox() { LinearLayout l = new LinearLayout(this); l.setOrientation(LinearLayout.VERTICAL); return l; }
     private LinearLayout hRow() { LinearLayout l = new LinearLayout(this); l.setOrientation(LinearLayout.HORIZONTAL); l.setGravity(Gravity.CENTER_VERTICAL); return l; }
-    private Space space(int w, int h) { Space s = new Space(this); s.setLayoutParams(new LinearLayout.LayoutParams(dp(w), dp(h))); return s; }
-
-    private TextView text(String label, int size, int color, boolean bold) {
-        TextView tv = new TextView(this);
-        tv.setText(label);
-        tv.setTextSize(size);
-        tv.setTextColor(color);
-        tv.setIncludeFontPadding(true);
-        if (bold) tv.setTypeface(Typeface.DEFAULT_BOLD);
-        return tv;
-    }
-
-    private TextView iconBox(String label, int size) {
-        TextView tv = text(label, size, TXT, true);
-        tv.setGravity(Gravity.CENTER);
-        tv.setBackground(round(CARD_DARK, 10, STROKE, 1));
-        return tv;
-    }
-
-    private LinearLayout box(int color, int radius, int stroke, int sw) {
-        LinearLayout l = new LinearLayout(this);
-        l.setOrientation(LinearLayout.VERTICAL);
-        l.setBackground(round(color, radius, stroke, sw));
-        return l;
-    }
-
-    private GradientDrawable round(int color, int radius, int stroke, int sw) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(radius));
-        if (sw > 0) d.setStroke(dp(sw), stroke);
-        return d;
-    }
-
+    private TextView text(String label, int size, int color, boolean bold) { TextView tv = new TextView(this); tv.setText(label); tv.setTextSize(size); tv.setTextColor(color); tv.setIncludeFontPadding(true); if (bold) tv.setTypeface(Typeface.DEFAULT_BOLD); return tv; }
+    private TextView icon(String label, int size) { TextView tv = text(label, size, TXT, true); tv.setGravity(Gravity.CENTER); tv.setBackground(round(PANEL, 12, STROKE, 1)); return tv; }
+    private TextView smallButton(String label) { TextView tv = text(label, 12, MUTED, true); tv.setGravity(Gravity.CENTER); tv.setBackground(round(Color.parseColor("#07131F"), 9, STROKE, 1)); return tv; }
+    private GradientDrawable round(int color, int radius, int stroke, int sw) { GradientDrawable d = new GradientDrawable(); d.setColor(color); d.setCornerRadius(dp(radius)); if (sw > 0) d.setStroke(dp(sw), stroke); return d; }
     private int dp(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
+    private LinearLayout.LayoutParams marginLp(int w, int h, int l, int t, int r, int b) { LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(w, h); lp.setMargins(l, t, r, b); return lp; }
 
     static class Health {
         boolean ok; String status="--"; boolean connected;
@@ -629,7 +601,7 @@ public class MainActivity extends Activity {
         boolean connected=false, decodeOk=false;
         long updatedAt=0;
         int packetSize=0, acelerador=0, freio=0;
-        String packetVersion="?", ps5Ip="192.168.1.54", velocidade="0", velocidadeMaxima="0", rpm="0", marcha="N", combustivel="--", combustivelPct="--", melhorVolta="--", ultimaVolta="--", tempoTotal="--", voltasBrutas="0", voltasCorrigidas="0", estadoCorrida="AGUARDANDO", paradasBoxes="--", codigoCarro="--", turbo="--", oilPressure="--", speedVector="--", rotation="--", angularVelocity="--", position="--";
+        String packetVersion="?", ps5Ip="192.168.1.54", velocidade="0", velocidadeMaxima="0", rpm="0", marcha="N", combustivel="--", combustivelPct="--", melhorVolta="--", ultimaVolta="--", tempoTotal="--", voltasBrutas="0", voltasCorrigidas="0", estadoCorrida="AGUARDANDO", paradasBoxes="--", codigoCarro="--", turbo="--", oilPressure="--", autonomia="--";
 
         void fromJson(JSONObject j, String savedPs5Ip){
             connected=j.optBoolean("connected", false);
@@ -641,30 +613,52 @@ public class MainActivity extends Activity {
             velocidade=clean(first(j,"velocidade","speed","speed_kmh"), "0");
             velocidadeMaxima=clean(first(j,"velocidadeMaxima","maxSpeed","max_speed_kmh"), velocidade);
             rpm=clean(first(j,"rpm","engine_rpm"), "0");
-            marcha=first(j,"marcha","gear","current_gear");
-            if (marcha.equals("--")) marcha = "N";
+            marcha=first(j,"marcha","gear","current_gear"); if (marcha.equals("--")) marcha = "N";
             acelerador=percent(j,"acelerador","throttle","throttle_percent","accelerator");
             freio=percent(j,"freio","brake","brake_percent");
             combustivel=clean(first(j,"combustivel","fuel_liters","fuelLiters","fuel"), "--");
             combustivelPct=clean(first(j,"combustivelPorcentagem","combustivelPct","fuel_percent","fuelPercent"), "--");
             melhorVolta=first(j,"melhorVolta","bestLap","best_lap","best_lap_time");
             ultimaVolta=first(j,"ultimaVolta","lastLap","last_lap","last_lap_time");
-            tempoTotal=first(j,"tempoTotalCorrida","tempoTotal","totalTime","total_time");
             voltasBrutas=clean(first(j,"voltasCompletadas","voltasBrutas","rawLaps","raw_laps"), "0");
             voltasCorrigidas=clean(first(j,"voltasCorrigidas","completed_laps","completedLaps","lap_count"), "0");
             paradasBoxes=clean(first(j,"paradasBoxes","pitStops","pit_stops"), "--");
             codigoCarro=first(j,"codigoCarro","carCode","carId","car_id","vehicleCode","car_code");
             turbo=first(j,"turbo","turbo_pressure");
             oilPressure=first(j,"oilPressure","oil_pressure","oil");
-            speedVector=obj(j.optJSONObject("speedVector"));
-            if (speedVector.equals("--")) speedVector = obj(j.optJSONObject("velocity_vector"));
-            rotation=obj(j.optJSONObject("rotation"));
-            angularVelocity=obj(j.optJSONObject("angularVelocity"));
-            position=obj(j.optJSONObject("position"));
+            tempoTotal=sumCorrectLaps(j);
+            if (tempoTotal.equals("--")) tempoTotal=first(j,"tempoTotalCorrida","tempoTotal","totalTime","total_time");
+            autonomia=calcAutonomy(j, combustivel, voltasCorrigidas);
             estadoCorrida = (num(velocidade) > 3 || num(rpm) > 1000 || num(voltasCorrigidas) > 0) ? "EM ANDAMENTO" : "AGUARDANDO";
         }
 
         void offline(){ connected=false; decodeOk=false; estadoCorrida="AGUARDANDO"; }
+
+        static String sumCorrectLaps(JSONObject j) {
+            JSONArray arr = firstArray(j, "voltasCertas", "correctLaps", "valid_laps", "lapTimes", "lap_times", "laps");
+            if (arr == null || arr.length() == 0) return "--";
+            long sum = 0; int ok = 0;
+            for (int i=0; i<arr.length(); i++) {
+                Object raw = arr.opt(i);
+                String s;
+                if (raw instanceof JSONObject) s = first((JSONObject)raw, "tempo", "time", "lapTime", "lap_time"); else s = String.valueOf(raw);
+                long ms = parseLapMs(s);
+                if (ms > 0) { sum += ms; ok++; }
+            }
+            return ok > 0 ? formatMs(sum) : "--";
+        }
+
+        static String calcAutonomy(JSONObject j, String fuel, String laps) {
+            String direct = first(j, "autonomia", "fuelAutonomy", "fuel_autonomy", "estimatedLapsFuel");
+            if (!direct.equals("--")) return direct;
+            double fuelL = dbl(fuel);
+            double used = dbl(first(j, "combustivelGasto", "fuelUsed", "fuel_used"));
+            double completed = dbl(laps);
+            if (fuelL > 0 && used > 0 && completed > 0) return String.format(Locale.US, "%.1f voltas", fuelL / (used / completed));
+            double fuelPct = dbl(first(j,"combustivelPorcentagem","combustivelPct","fuel_percent","fuelPercent"));
+            if (fuelPct > 0 && completed > 0 && fuelPct < 100) return String.format(Locale.US, "%.1f voltas", completed * fuelPct / Math.max(1, 100 - fuelPct));
+            return "--";
+        }
 
         static int percent(JSONObject j, String... keys) {
             String raw = first(j, keys);
@@ -675,112 +669,78 @@ public class MainActivity extends Activity {
                 return Math.max(0, Math.min(100, (int)Math.round(v)));
             } catch(Exception e){ return 0; }
         }
-
         static int num(String s) { try { return Integer.parseInt(String.valueOf(s).replaceAll("[^0-9-]", "")); } catch (Exception e) { return 0; } }
+        static double dbl(String s) { try { return Double.parseDouble(String.valueOf(s).replace(",", ".").replaceAll("[^0-9.\\-]", "")); } catch(Exception e){ return 0; } }
         static String clean(String v, String fallback){ if(v==null || v.equals("--") || v.length()==0) return fallback; if(v.endsWith(".0")) return v.substring(0,v.length()-2); return v; }
         static String first(JSONObject j, String... keys){ for(String k: keys){ if(j.has(k) && !j.isNull(k)) return String.valueOf(j.opt(k)); } return "--"; }
-        static String obj(JSONObject o){ if(o==null) return "--"; StringBuilder sb=new StringBuilder(); JSONArray n=o.names(); if(n==null) return "--"; for(int i=0;i<n.length();i++){ String k=n.optString(i); if(i>0) sb.append("  "); sb.append(k).append(": ").append(o.opt(k)); } return sb.toString(); }
+        static JSONArray firstArray(JSONObject j, String... keys){ for(String k: keys){ JSONArray a = j.optJSONArray(k); if(a!=null) return a; } return null; }
+        static long parseLapMs(String s) {
+            try {
+                s = String.valueOf(s).trim().replace(",", ".");
+                if (s.equals("--") || s.length() == 0) return 0;
+                String[] p = s.split(":");
+                if (p.length == 1) return Math.round(Double.parseDouble(p[0]) * 1000.0);
+                if (p.length == 2) return Math.round((Double.parseDouble(p[0]) * 60.0 + Double.parseDouble(p[1])) * 1000.0);
+                return Math.round((Double.parseDouble(p[0]) * 3600.0 + Double.parseDouble(p[1]) * 60.0 + Double.parseDouble(p[2])) * 1000.0);
+            } catch(Exception e){ return 0; }
+        }
+        static String formatMs(long ms) {
+            long total = ms / 1000; long milli = ms % 1000; long sec = total % 60; long min = (total / 60) % 60; long hr = total / 3600;
+            if (hr > 0) return String.format(Locale.US, "%d:%02d:%02d.%03d", hr, min, sec, milli);
+            return String.format(Locale.US, "%d:%02d.%03d", min, sec, milli);
+        }
     }
 
-    static class GaugeView extends View {
+    static class RpmGaugeView extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private int speed = 0, rpm = 0;
-
-        GaugeView(Context c) { super(c); text.setTypeface(Typeface.DEFAULT_BOLD); }
-
-        void setValues(int s, int r) { speed=s; rpm=r; invalidate(); }
-
+        private int rpm = 0, speed = 0;
+        RpmGaugeView(Context c) { super(c); text.setTypeface(Typeface.DEFAULT_BOLD); }
+        void setValues(int r, int s) { rpm=r; speed=s; invalidate(); }
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
-            int w = getWidth(), h = getHeight();
-            float cx = w / 2f, cy = h / 2f + dpLocal(8);
-            float r = Math.min(w, h) * .43f;
-            p.setStyle(Paint.Style.FILL);
-            p.setColor(Color.parseColor("#050910"));
-            c.drawCircle(cx, cy, r * 1.08f, p);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(dpLocal(16));
-            p.setStrokeCap(Paint.Cap.BUTT);
+            int w=getWidth(), h=getHeight(); float cx=w/2f, cy=h*.96f; float r=Math.min(w*.47f, h*.86f);
+            p.setStyle(Paint.Style.STROKE); p.setStrokeCap(Paint.Cap.BUTT); p.setStrokeWidth(dpLocal(18));
             RectF arc = new RectF(cx-r, cy-r, cx+r, cy+r);
-            p.setShader(new LinearGradient(cx-r, cy, cx+r, cy, new int[]{Color.parseColor("#1E88FF"), Color.parseColor("#12E8FF"), Color.parseColor("#FFD35A"), Color.parseColor("#FF315E")}, null, Shader.TileMode.CLAMP));
-            c.drawArc(arc, 218, 284, false, p);
-            p.setShader(null);
-
-            p.setStrokeWidth(dpLocal(2));
-            for (int i=0; i<=50; i++) {
-                float a = (float)Math.toRadians(218 + 284 * i / 50f);
-                float inner = i % 5 == 0 ? r - dpLocal(24) : r - dpLocal(15);
-                float x1 = cx + (float)Math.cos(a) * inner;
-                float y1 = cy + (float)Math.sin(a) * inner;
-                float x2 = cx + (float)Math.cos(a) * (r - dpLocal(2));
-                float y2 = cy + (float)Math.sin(a) * (r - dpLocal(2));
-                p.setColor(Color.argb(i%5==0?230:130,255,255,255));
-                c.drawLine(x1,y1,x2,y2,p);
+            p.setShader(new LinearGradient(cx-r, cy, cx+r, cy, new int[]{Color.parseColor("#009BFF"), Color.parseColor("#10E6FF"), Color.parseColor("#FF3358")}, null, Shader.TileMode.CLAMP));
+            c.drawArc(arc, 200, 140, false, p); p.setShader(null);
+            p.setStrokeWidth(dpLocal(3));
+            for(int i=0;i<=60;i++){
+                float a=(float)Math.toRadians(200 + 140*i/60f); float inner = r - (i%5==0?dpLocal(30):dpLocal(18));
+                p.setColor(i>48?Color.parseColor("#FF3358"):Color.argb(i%5==0?240:150,255,255,255));
+                c.drawLine(cx+(float)Math.cos(a)*inner, cy+(float)Math.sin(a)*inner, cx+(float)Math.cos(a)*(r-dpLocal(2)), cy+(float)Math.sin(a)*(r-dpLocal(2)), p);
             }
-
-            text.setTextSize(dpLocal(14));
-            text.setColor(Color.WHITE);
-            text.setTextAlign(Paint.Align.CENTER);
-            for (int i=0; i<=10; i++) {
-                float a = (float)Math.toRadians(218 + 284 * i / 10f);
-                float rr = r - dpLocal(43);
-                c.drawText(String.valueOf(i), cx + (float)Math.cos(a)*rr, cy + (float)Math.sin(a)*rr + dpLocal(5), text);
-            }
-
-            float pct = Math.max(0, Math.min(1, speed / 360f));
-            float na = (float)Math.toRadians(218 + 284*pct);
-            p.setStyle(Paint.Style.STROKE);
-            p.setStrokeWidth(dpLocal(4));
-            p.setColor(Color.parseColor("#FF9E28"));
-            c.drawLine(cx, cy, cx + (float)Math.cos(na)*(r-dpLocal(28)), cy + (float)Math.sin(na)*(r-dpLocal(28)), p);
-
-            text.setTextSize(dpLocal(10));
-            text.setColor(Color.parseColor("#9FAABC"));
-            c.drawText("x1000 RPM", cx, cy-r*.50f, text);
+            text.setColor(Color.WHITE); text.setTextAlign(Paint.Align.CENTER); text.setTextSize(dpLocal(17));
+            for(int i=0;i<=12;i+=2){ float a=(float)Math.toRadians(200 + 140*i/12f); c.drawText(String.valueOf(i), cx+(float)Math.cos(a)*(r-dpLocal(54)), cy+(float)Math.sin(a)*(r-dpLocal(54))+dpLocal(6), text); }
+            float pct=Math.max(0, Math.min(1, rpm/12000f)); float na=(float)Math.toRadians(200+140*pct);
+            p.setStrokeWidth(dpLocal(5)); p.setColor(Color.parseColor("#FF3358"));
+            c.drawLine(cx, cy, cx+(float)Math.cos(na)*(r-dpLocal(48)), cy+(float)Math.sin(na)*(r-dpLocal(48)), p);
+            p.setStyle(Paint.Style.FILL); c.drawCircle(cx, cy, dpLocal(7), p);
+            text.setTextSize(dpLocal(12)); text.setColor(Color.parseColor("#16E6FF")); c.drawText(speed + " km/h", cx, cy-r*.42f, text);
         }
-
         private int dpLocal(int v) { return Math.round(v * getResources().getDisplayMetrics().density); }
     }
 
-    static class SparkView extends View {
+    static class AccelChartView extends View {
         private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final int color;
-        private final int mode;
-        private final float[] vals = new float[42];
-
-        SparkView(Context c, int color, int mode) {
-            super(c);
-            this.color = color;
-            this.mode = mode;
-            Random r = new Random(mode * 1000L + color);
-            for (int i=0; i<vals.length; i++) vals[i] = .25f + r.nextFloat()*.65f;
-        }
-
+        private final float[] vals = new float[90];
+        AccelChartView(Context c) { super(c); }
+        void push(float v) { System.arraycopy(vals, 1, vals, 0, vals.length-1); vals[vals.length-1] = Math.max(-1, Math.min(1, v)); invalidate(); }
         @Override protected void onDraw(Canvas c) {
-            super.onDraw(c);
-            p.setColor(color);
-            p.setStrokeWidth(Math.max(2, getHeight()/12f));
-            p.setStyle(Paint.Style.STROKE);
-            p.setAlpha(210);
-            int w=getWidth(), h=getHeight();
-            if (mode == 2) {
-                p.setStrokeWidth(Math.max(4, w/18f));
-                p.setStyle(Paint.Style.FILL);
-                for (int i=0;i<7;i++) {
-                    float bw = w/11f;
-                    float x = w*.18f + i*bw*1.2f;
-                    float bh = h*(.25f + i*.095f);
-                    p.setAlpha(80 + i*22);
-                    c.drawRoundRect(x, h-bh, x+bw, h, bw/3, bw/3, p);
-                }
-                return;
+            super.onDraw(c); int w=getWidth(), h=getHeight(); float mid=h*.52f;
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(1); p.setColor(Color.parseColor("#18344B"));
+            for(int i=0;i<=6;i++){ float y=i*h/6f; c.drawLine(0,y,w,y,p); }
+            for(int i=0;i<=12;i++){ float x=i*w/12f; c.drawLine(x,0,x,h,p); }
+            p.setColor(Color.parseColor("#678099")); c.drawLine(0, mid, w, mid, p);
+            float bw=Math.max(2, w/(float)vals.length*.72f);
+            p.setStyle(Paint.Style.FILL);
+            for(int i=0;i<vals.length;i++){
+                float v=vals[i]; float x=i*w/(float)vals.length; float y=mid - v*(h*.42f);
+                p.setColor(v>=0?Color.parseColor("#159BFF"):Color.parseColor("#FF3358"));
+                c.drawRoundRect(x, Math.min(mid,y), x+bw, Math.max(mid,y), bw/2, bw/2, p);
             }
-            for (int i=1; i<vals.length; i++) {
-                float x1=(i-1)*w/(float)(vals.length-1), x2=i*w/(float)(vals.length-1);
-                float y1=h - vals[i-1]*h, y2=h - vals[i]*h;
-                c.drawLine(x1,y1,x2,y2,p);
-            }
+            p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(2); p.setColor(Color.parseColor("#406A8C"));
+            c.drawRect(0,0,w-1,h-1,p);
         }
     }
 }
