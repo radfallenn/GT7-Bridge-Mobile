@@ -37,11 +37,11 @@ jobs:
       - name: Preparar APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v159.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v161.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GT7-Bridge-Mobile-APK-v159
-          path: dist/GT7-Bridge-Mobile-v159.apk
+          name: GT7-Bridge-Mobile-APK-v161
+          path: dist/GT7-Bridge-Mobile-v161.apk
           if-no-files-found: error
