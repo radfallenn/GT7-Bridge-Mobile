@@ -1,0 +1,1 @@
+class TestSmall { String version = "v1.6.0"; }
