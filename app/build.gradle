@@ -7,13 +7,16 @@ android {
         applicationId 'com.gt7.bridge.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 27
-        versionName '1.6.4-session-fix'
+        versionCode 28
+        versionName '1.6.4-summary-fix'
     }
 }
 
-// Correção aplicada antes da compilação para evitar card duplicado ao finalizar seção
-// e deixar o texto do resumo legível na janela branca do Android.
+// Correções aplicadas antes da compilação:
+// 1) Resumo mostra somente os 8 campos pedidos.
+// 2) Texto do popup fica legível.
+// 3) Ao finalizar seção, limpa o bloco temporário e deixa só o card salvo.
+// 4) Campo Voltas usa a telemetria de volta quando disponível, evitando contar 1 volta automática no resumo.
 tasks.register('patchMainActivityForSessionFix') {
     doLast {
         def f = file('src/main/java/com/gt7/bridge/mobile/MainActivity.java')
@@ -21,6 +24,8 @@ tasks.register('patchMainActivityForSessionFix') {
             def s = f.getText('UTF-8')
             s = s.replace('tv.setTextColor(Color.WHITE);tv.setLineSpacing(4,1.08f);Button copy=new Button(this);', 'tv.setTextColor(Color.rgb(30,30,30));tv.setLineSpacing(4,1.08f);Button copy=new Button(this);')
             s = s.replace('saveSessionSummary();setActive(false);Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();', 'calc();saveSessionSummary();setActive(false);resetSession();Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();')
+            s = s.replace('o.put("laps",laps.size());', 'o.put("laps",lapNo().equals("--")?String.valueOf(laps.size()):lapNo());')
+            s = s.replaceAll(/String detailText\(JSONObject o\)\{.*?return sb\.toString\(\);\}/, 'String detailText(JSONObject o){return copyText(o);}')
             f.write(s, 'UTF-8')
         }
     }
