@@ -7,10 +7,26 @@ android {
         applicationId 'com.gt7.bridge.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 26
-        versionName '1.6.3'
+        versionCode 27
+        versionName '1.6.4-session-fix'
     }
 }
+
+// Correção aplicada antes da compilação para evitar card duplicado ao finalizar seção
+// e deixar o texto do resumo legível na janela branca do Android.
+tasks.register('patchMainActivityForSessionFix') {
+    doLast {
+        def f = file('src/main/java/com/gt7/bridge/mobile/MainActivity.java')
+        if (f.exists()) {
+            def s = f.getText('UTF-8')
+            s = s.replace('tv.setTextColor(Color.WHITE);tv.setLineSpacing(4,1.08f);Button copy=new Button(this);', 'tv.setTextColor(Color.rgb(30,30,30));tv.setLineSpacing(4,1.08f);Button copy=new Button(this);')
+            s = s.replace('saveSessionSummary();setActive(false);Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();', 'calc();saveSessionSummary();setActive(false);resetSession();Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();')
+            f.write(s, 'UTF-8')
+        }
+    }
+}
+
+preBuild.dependsOn patchMainActivityForSessionFix
 
 dependencies {
 }
