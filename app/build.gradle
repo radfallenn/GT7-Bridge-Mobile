@@ -7,15 +7,14 @@ android {
         applicationId 'com.gt7.bridge.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 30
-        versionName '1.6.4-laps-summary'
+        versionCode 31
+        versionName '1.6.4-clean-summary'
     }
 }
 
 // Correções aplicadas antes da compilação:
-// - Resumo mostra todas as voltas separadas + campos pedidos.
-// - Texto do popup fica legível.
-// - Ao finalizar seção, limpa o bloco temporário e deixa só o card salvo.
+// - Resumo organizado no formato pedido.
+// - Quebras de linha reais, sem aparecer letra n.
 // - Marca, Carro, Pneus/Configuração e Posição vêm dos campos manuais em SETTINGS.
 // - Bridge URL e PS5 IP continuam preenchidos com os últimos valores salvos.
 tasks.register('patchMainActivityForSessionFix') {
@@ -49,7 +48,7 @@ tasks.register('patchMainActivityForSessionFix') {
                 'calc();saveSessionSummary();setActive(false);resetSession();Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();')
 
             s = s.replaceAll(/String detailText\(JSONObject o\)\{.*?return sb\.toString\(\);\}/,
-                'String detailText(JSONObject o){StringBuilder sb=new StringBuilder();sb.append("Todas as voltas:\\n");JSONArray a=o.optJSONArray("lapTimes");if(a!=null&&a.length()>0){for(int i=0;i<a.length();i++)sb.append("Volta ").append(i+1).append(": ").append(a.optString(i,"--")).append("\\n");}else sb.append("--\\n");sb.append("\\n").append(copyText(o));return sb.toString();}')
+                '''String detailText(JSONObject o){StringBuilder sb=new StringBuilder();sb.append("Resumo da Seção\n\n");sb.append("Marca: ").append(o.optString("brand","--")).append('\n');sb.append("Carro: ").append(o.optString("car","--")).append('\n');sb.append("Pneus / Configuração: ").append(o.optString("config","--")).append('\n').append('\n');JSONArray a=o.optJSONArray("lapTimes");if(a!=null&&a.length()>0){for(int i=0;i<a.length();i++)sb.append("Volta ").append(i+1).append(": ").append(a.optString(i,"--")).append('\n');}else{sb.append("Volta 1: --\n");}sb.append('\n');sb.append("Melhor Volta: ").append(o.optString("best","--")).append('\n');sb.append("Tempo Total: ").append(o.optString("total","--")).append('\n');sb.append("Max Session: ").append(o.optString("maxSpeedSession",o.optString("maxSpeed","--"))).append(" km/h");return sb.toString();}''')
 
             s = s.replace('void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=74;setting(c,202,y,"PS5 IP",ps5);y+=74;setting(c,203,y,"Pista",track);y+=74;setting(c,204,y,"Carro",car);y+=74;button(c,208,8,y,414,60,"TEMA",themeName()+" · toque para trocar",theme()==1?gold:cyan);y+=74;button(c,206,8,y,414,60,"RESTAURAR CARDS","liga todos os checks",cyan);y+=74;button(c,207,8,y,414,60,"APAGAR SESSOES","limpar historico salvo",red);}',
                 'void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=74;setting(c,202,y,"PS5 IP",ps5);y+=74;setting(c,203,y,"Pista",track);y+=74;setting(c,204,y,"Marca",brandManual);y+=74;setting(c,205,y,"Carro",car);y+=74;setting(c,206,y,"Pneus / Configuração",configManual);y+=74;setting(c,211,y,"Posição",posManual);y+=74;button(c,208,8,y,414,60,"TEMA",themeName()+" · toque para trocar",theme()==1?gold:cyan);y+=74;button(c,212,8,y,414,60,"RESTAURAR CARDS","liga todos os checks",cyan);y+=74;button(c,207,8,y,414,60,"APAGAR SESSOES","limpar historico salvo",red);}')
