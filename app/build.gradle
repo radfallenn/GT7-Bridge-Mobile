@@ -7,13 +7,14 @@ android {
         applicationId 'com.gt7.bridge.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 32
-        versionName '1.6.4-summary-layout'
+        versionCode 33
+        versionName '1.6.4-summary-hyphen'
     }
 }
 
 // Correções aplicadas antes da compilação:
-// - Resumo organizado no formato pedido.
+// - Resumo no formato pedido com hífen.
+// - Botão COPIAR copia o mesmo formato.
 // - Quebras de linha seguras com System.lineSeparator().
 // - Marca, Carro, Pneus/Configuração e Posição vêm dos campos manuais em SETTINGS.
 // - Bridge URL e PS5 IP continuam preenchidos com os últimos valores salvos.
@@ -47,8 +48,11 @@ tasks.register('patchMainActivityForSessionFix') {
             s = s.replace('saveSessionSummary();setActive(false);Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();',
                 'calc();saveSessionSummary();setActive(false);resetSession();Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();')
 
+            s = s.replaceAll(/String copyText\(JSONObject o\)\{.*?return sb\.toString\(\);\}/,
+                'String copyText(JSONObject o){return detailText(o);}')
+
             s = s.replaceAll(/String detailText\(JSONObject o\)\{.*?return sb\.toString\(\);\}/,
-                'String detailText(JSONObject o){String nl=System.lineSeparator();StringBuilder sb=new StringBuilder();sb.append("Resumo da Seção").append(nl).append(nl);sb.append("Marca: ").append(o.optString("brand","--")).append(nl);sb.append("Carro: ").append(o.optString("car","--")).append(nl);sb.append("Pneus / Configuração: ").append(o.optString("config","--")).append(nl).append(nl);JSONArray a=o.optJSONArray("lapTimes");if(a!=null&&a.length()>0){for(int i=0;i<a.length();i++)sb.append("Volta ").append(i+1).append(": ").append(a.optString(i,"--")).append(nl);}else{sb.append("Volta 1: --").append(nl);}sb.append(nl);sb.append("Melhor Volta: ").append(o.optString("best","--")).append(nl);sb.append("Tempo Total: ").append(o.optString("total","--")).append(nl);sb.append("Max Session: ").append(o.optString("maxSpeedSession",o.optString("maxSpeed","--"))).append(" km/h");return sb.toString();}')
+                'String detailText(JSONObject o){String nl=System.lineSeparator();StringBuilder sb=new StringBuilder();sb.append("Resumo da Seção").append(nl).append(nl);sb.append("Marca - ").append(o.optString("brand","--")).append(nl);sb.append("Carro - ").append(o.optString("car","--")).append(nl);sb.append("Pneus / Configuração - ").append(o.optString("config","--")).append(nl).append(nl);JSONArray a=o.optJSONArray("lapTimes");if(a!=null&&a.length()>0){for(int i=0;i<a.length();i++)sb.append("Volta ").append(i+1).append(" - ").append(a.optString(i,"--")).append(nl);}else{sb.append("Volta 1 - --").append(nl);}sb.append(nl);sb.append("Melhor Volta - ").append(o.optString("best","--")).append(nl);sb.append("Tempo Total - ").append(o.optString("total","--")).append(nl);sb.append("Max Session - ").append(o.optString("maxSpeedSession",o.optString("maxSpeed","--"))).append(" km/h");return sb.toString();}')
 
             s = s.replace('void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=74;setting(c,202,y,"PS5 IP",ps5);y+=74;setting(c,203,y,"Pista",track);y+=74;setting(c,204,y,"Carro",car);y+=74;button(c,208,8,y,414,60,"TEMA",themeName()+" · toque para trocar",theme()==1?gold:cyan);y+=74;button(c,206,8,y,414,60,"RESTAURAR CARDS","liga todos os checks",cyan);y+=74;button(c,207,8,y,414,60,"APAGAR SESSOES","limpar historico salvo",red);}',
                 'void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=74;setting(c,202,y,"PS5 IP",ps5);y+=74;setting(c,203,y,"Pista",track);y+=74;setting(c,204,y,"Marca",brandManual);y+=74;setting(c,205,y,"Carro",car);y+=74;setting(c,206,y,"Pneus / Configuração",configManual);y+=74;setting(c,211,y,"Posição",posManual);y+=74;button(c,208,8,y,414,60,"TEMA",themeName()+" · toque para trocar",theme()==1?gold:cyan);y+=74;button(c,212,8,y,414,60,"RESTAURAR CARDS","liga todos os checks",cyan);y+=74;button(c,207,8,y,414,60,"APAGAR SESSOES","limpar historico salvo",red);}')
