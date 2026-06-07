@@ -7,16 +7,17 @@ android {
         applicationId 'com.gt7.bridge.mobile'
         minSdk 26
         targetSdk 35
-        versionCode 29
-        versionName '1.6.4-manual-summary'
+        versionCode 30
+        versionName '1.6.4-laps-summary'
     }
 }
 
 // Correções aplicadas antes da compilação:
-// - Resumo mostra somente os 8 campos pedidos.
+// - Resumo mostra todas as voltas separadas + campos pedidos.
 // - Texto do popup fica legível.
 // - Ao finalizar seção, limpa o bloco temporário e deixa só o card salvo.
 // - Marca, Carro, Pneus/Configuração e Posição vêm dos campos manuais em SETTINGS.
+// - Bridge URL e PS5 IP continuam preenchidos com os últimos valores salvos.
 tasks.register('patchMainActivityForSessionFix') {
     doLast {
         def f = file('src/main/java/com/gt7/bridge/mobile/MainActivity.java')
@@ -38,8 +39,8 @@ tasks.register('patchMainActivityForSessionFix') {
             s = s.replace('String c=val("carName","car","model","modelo");if(!c.equals("--"))car=c;',
                 'String c=val("carName","car","model","modelo");')
 
-            s = s.replace('o.put("car",car);', 'o.put("car",car);')
             s = s.replace('o.put("laps",laps.size());', 'o.put("laps",lapNo().equals("--")?String.valueOf(laps.size()):lapNo());')
+            s = s.replace('o.put("finalSpeed",speedT());', 'o.put("finalSpeed",speedT());o.put("bridgeUrl",url);o.put("ps5Ip",ps5);')
 
             s = s.replace('tv.setTextColor(Color.WHITE);tv.setLineSpacing(4,1.08f);Button copy=new Button(this);',
                 'tv.setTextColor(Color.rgb(30,30,30));tv.setLineSpacing(4,1.08f);Button copy=new Button(this);')
@@ -48,7 +49,7 @@ tasks.register('patchMainActivityForSessionFix') {
                 'calc();saveSessionSummary();setActive(false);resetSession();Toast.makeText(this,"Secao finalizada e salva",0).show();view.invalidate();')
 
             s = s.replaceAll(/String detailText\(JSONObject o\)\{.*?return sb\.toString\(\);\}/,
-                'String detailText(JSONObject o){return copyText(o);}')
+                'String detailText(JSONObject o){StringBuilder sb=new StringBuilder();sb.append("Todas as voltas:\\n");JSONArray a=o.optJSONArray("lapTimes");if(a!=null&&a.length()>0){for(int i=0;i<a.length();i++)sb.append("Volta ").append(i+1).append(": ").append(a.optString(i,"--")).append("\\n");}else sb.append("--\\n");sb.append("\\n").append(copyText(o));return sb.toString();}')
 
             s = s.replace('void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=74;setting(c,202,y,"PS5 IP",ps5);y+=74;setting(c,203,y,"Pista",track);y+=74;setting(c,204,y,"Carro",car);y+=74;button(c,208,8,y,414,60,"TEMA",themeName()+" · toque para trocar",theme()==1?gold:cyan);y+=74;button(c,206,8,y,414,60,"RESTAURAR CARDS","liga todos os checks",cyan);y+=74;button(c,207,8,y,414,60,"APAGAR SESSOES","limpar historico salvo",red);}',
                 'void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=74;setting(c,202,y,"PS5 IP",ps5);y+=74;setting(c,203,y,"Pista",track);y+=74;setting(c,204,y,"Marca",brandManual);y+=74;setting(c,205,y,"Carro",car);y+=74;setting(c,206,y,"Pneus / Configuração",configManual);y+=74;setting(c,211,y,"Posição",posManual);y+=74;button(c,208,8,y,414,60,"TEMA",themeName()+" · toque para trocar",theme()==1?gold:cyan);y+=74;button(c,212,8,y,414,60,"RESTAURAR CARDS","liga todos os checks",cyan);y+=74;button(c,207,8,y,414,60,"APAGAR SESSOES","limpar historico salvo",red);}')
