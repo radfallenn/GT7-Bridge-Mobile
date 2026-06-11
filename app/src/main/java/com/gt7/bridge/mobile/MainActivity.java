@@ -1,34 +1,392 @@
 package com.gt7.bridge.mobile;
 
-import android.app.*;import android.os.*;import android.view.*;import android.widget.*;import android.graphics.*;import android.content.*;import org.json.*;import java.io.*;import java.net.*;import java.text.*;import java.util.*;
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Locale;
+import java.util.Map;
 
-public class MainActivity extends Activity{
- static final String VER="v2.0.0-revolution",P="gt7_revolution",URL="url",PS5="ps5",TR="track",CAR="car",BR="brand",CFG="config",POS="position",ML="max_laps",SES="sessions",ACT="active",DEF="http://192.168.1.70:8787",DPS="192.168.1.54";
- Handler h=new Handler(Looper.getMainLooper());Dash v;Map<String,String> data=new HashMap<>(),last=new HashMap<>();ArrayList<Long> laps=new ArrayList<>();String url=DEF,ps5=DPS,track="--",car="--",brand="--",config="--",position="--",lastLap="";boolean running;long lastPacket=0;int packets=0;float maxSpeed=0,fuelStart=Float.NaN,fuelLast=Float.NaN,fuelPerLap=Float.NaN;
- Runnable loop=new Runnable(){public void run(){poll();if(running)h.postDelayed(this,550);}};
- public void onCreate(Bundle b){super.onCreate(b);requestWindowFeature(Window.FEATURE_NO_TITLE);getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);full();load();v=new Dash(this);setContentView(v);start();}
- protected void onResume(){super.onResume();full();start();}protected void onPause(){super.onPause();stop();}public void onWindowFocusChanged(boolean f){super.onWindowFocusChanged(f);if(f)full();}
- void full(){getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_FULLSCREEN);}void start(){if(!running){running=true;h.post(loop);}}void stop(){running=false;h.removeCallbacks(loop);}SharedPreferences sp(){return getSharedPreferences(P,0);}int maxLaps(){return sp().getInt(ML,30);}boolean active(){return sp().getBoolean(ACT,false);}void setActive(boolean b){sp().edit().putBoolean(ACT,b).apply();}
- void load(){SharedPreferences s=sp();url=fix(s.getString(URL,DEF));ps5=s.getString(PS5,DPS);track=s.getString(TR,"--");car=s.getString(CAR,"--");brand=s.getString(BR,"--");config=s.getString(CFG,"--");position=s.getString(POS,"--");}
- String fix(String s){if(s==null||s.trim().length()==0)return DEF;String u=s.trim();if(u.startsWith("ws://"))u="http://"+u.substring(5);if(!u.startsWith("http://")&&!u.startsWith("https://"))u="http://"+u;while(u.endsWith("/"))u=u.substring(0,u.length()-1);return u;}
- void poll(){new Thread(new Runnable(){public void run(){boolean ok=false;try{String b=http(url+"/api/fields");if(!valid(b))b=http(url+"/api/telemetry");if(!valid(b))b=http(url);Map<String,String> m=parse(b);if(m.size()>0){data=m;for(String k:m.keySet()){String vv=m.get(k);if(valid(vv))last.put(k,vv);}lastPacket=System.currentTimeMillis();packets++;calc();ok=true;}}catch(Exception e){data.put("__status","OFFLINE");}final boolean good=ok;h.post(new Runnable(){public void run(){if(!good&&System.currentTimeMillis()-lastPacket>2600)data.put("__status","OFFLINE");v.invalidate();}});}}).start();}
- String http(String u)throws Exception{HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();c.setConnectTimeout(900);c.setReadTimeout(900);BufferedReader r=new BufferedReader(new InputStreamReader(c.getInputStream()));StringBuilder sb=new StringBuilder();String l;while((l=r.readLine())!=null)sb.append(l);r.close();c.disconnect();return sb.toString();}
- boolean valid(String s){if(s==null)return false;String x=s.trim();return x.length()>0&&!x.equals("--")&&!x.equalsIgnoreCase("null")&&!x.equalsIgnoreCase("undefined")&&!x.equalsIgnoreCase("nan");}
- Map<String,String> parse(String b)throws Exception{Map<String,String> out=new HashMap<>();if(b==null)return out;String s=b.trim();int a=s.indexOf('{'),z=s.lastIndexOf('}');if(a>=0&&z>a)s=s.substring(a,z+1);Object root=new JSONTokener(s).nextValue();flat(out,"",root);return out;}void flat(Map<String,String> out,String pre,Object x)throws Exception{if(x instanceof JSONObject){JSONObject j=(JSONObject)x;Iterator<String> it=j.keys();while(it.hasNext()){String k=it.next();Object o=j.get(k);String p=pre.length()==0?k:pre+"."+k;flat(out,p,o);if(o instanceof JSONObject&&(k.equals("fields")||k.equals("telemetry")||k.equals("position")||k.equals("car")||k.equals("session")))flat(out,"",o);}}else out.put(pre,String.valueOf(x));}
- String val(String...ks){for(String k:ks)if(data.containsKey(k)&&valid(data.get(k)))return data.get(k);for(String k:ks)if(last.containsKey(k)&&valid(last.get(k)))return last.get(k);return "--";}float num(String...ks){try{return Float.parseFloat(val(ks).replace("%","").replace(',','.'));}catch(Exception e){return Float.NaN;}}
- float speed(){return num("speed_kmh","speedKmh","velocityKmh","velocidade","kmh","speed");}float rpm(){return num("engine_rpm","EngineRPM","engineRPM","rpm","currentRpm");}float fuelLevel(){return num("fuelLevel","fuel","fuelLiters","fuel_liters");}float fuelCapacity(){return num("fuelCapacity","fuel_capacity","tank_capacity");}float fuel(){float f=num("fuelPercent","fuel_percent","combustivelPorcentagem","fuelPercentage");if(!Float.isNaN(f))return f;float l=fuelLevel(),c=fuelCapacity();if(!Float.isNaN(l)&&!Float.isNaN(c)&&c>0)return Math.max(0,Math.min(100,(l/c)*100f));return Float.NaN;}
- String speedT(){float s=speed();return Float.isNaN(s)?"--":String.valueOf(Math.round(s));}String gear(){return val("gear","marcha","currentGear","gears");}String best(){return val("bestLaptime","bestLap","best_lap","best_lap_text","melhorVolta");}String lap(){return val("lastLaptime","lastLap","last_lap","last_lap_text","ultimaVolta");}String lapNo(){return val("lapCount","completed_laps","lap","currentLap","voltasCorrigidas","correctedLaps");}String maxT(){return maxSpeed<=0?"--":String.valueOf(Math.round(maxSpeed));}String fuelT(){float f=fuel();return Float.isNaN(f)?"--":Math.round(f)+"%";}String one(float n){return Float.isNaN(n)?"--":String.format(Locale.US,"%.1f",n);}String pct(float n){return Float.isNaN(n)?"--":String.valueOf(Math.round(n));}
- String weather(){String w=val("weather","clima","weatherText","condition","rain","rainIntensity");if(!w.equals("--"))return w;float r=num("rainIntensity","rain","surfaceWater","waterOnTrack");if(!Float.isNaN(r)&&r>0)return r>50?"Chuva forte":"Chuva";return "--";}String wet(){float x=num("trackWetness","track_wetness","surfaceWater","waterOnTrack","wetness");if(Float.isNaN(x))return "--";if(x<=1)x*=100f;return Math.round(x)+"%";}String carId(){return slug(car);}String trackId(){return slug(track);}String autonomy(){if(Float.isNaN(fuelLast)||Float.isNaN(fuelPerLap)||fuelPerLap<=0.02f)return "--";return String.format(Locale.US,"%.1f",Math.max(0,fuelLast/fuelPerLap));}
- String slug(String s){if(!valid(s))return "--";String x=s.toLowerCase(Locale.US).replace("'","").replace("/"," ");StringBuilder b=new StringBuilder();boolean us=false;for(int i=0;i<x.length();i++){char c=x.charAt(i);if((c>='a'&&c<='z')||(c>='0'&&c<='9')){b.append(c);us=false;}else if(!us){b.append('_');us=true;}}String r=b.toString();while(r.startsWith("_"))r=r.substring(1);while(r.endsWith("_"))r=r.substring(0,r.length()-1);return r.length()==0?"--":r;}
- void calc(){String t=val("trackName","track","pista","course","circuit");if(!t.equals("--"))track=t;String c=val("carName","car","model","modelo");if(!c.equals("--")&&car.equals("--"))car=c;if(!active())return;float s=speed(),f=fuel();if(!Float.isNaN(s)&&s>maxSpeed)maxSpeed=s;if(!Float.isNaN(f)){if(Float.isNaN(fuelStart))fuelStart=f;fuelLast=f;}String l=lap();if(!l.equals("--")&&!l.equals(lastLap)){long ms=toMs(l);if(ms>0&&laps.size()<maxLaps()){laps.add(ms);updateFuelAverage();}lastLap=l;}}
- void updateFuelAverage(){if(Float.isNaN(fuelStart)||Float.isNaN(fuelLast))return;float used=fuelStart-fuelLast;if(used>0.02f&&laps.size()>0)fuelPerLap=used/Math.max(1,laps.size());}long total(){long t=0;for(Long l:laps)t+=l;return t;}long toMs(String r){try{if(!valid(r))return 0;String s=r.trim().replace(',','.');if(!s.contains(":")){float n=Float.parseFloat(s);return n>1000?Math.round(n):Math.round(n*1000f);}String[] p=s.split(":");float sec=Float.parseFloat(p[p.length-1]);long m=p.length>=2?Long.parseLong(p[p.length-2]):0,hr=p.length>=3?Long.parseLong(p[p.length-3]):0;return hr*3600000L+m*60000L+Math.round(sec*1000f);}catch(Exception e){return 0;}}String fmt(long ms){if(ms<=0)return "--:--.---";long h=ms/3600000L;ms%=3600000L;long m=ms/60000L;ms%=60000L;long s=ms/1000L,z=ms%1000L;return h>0?String.format(Locale.US,"%02d:%02d:%02d.%03d",h,m,s,z):String.format(Locale.US,"%02d:%02d.%03d",m,s,z);}String bestSession(){String b=best();if(!b.equals("--"))return b;long min=0;for(Long l:laps)if(l>0&&(min==0||l<min))min=l;return min>0?fmt(min):"--";}JSONArray lapTimes(){JSONArray a=new JSONArray();for(Long l:laps)a.put(fmt(l));return a;}
- JSONArray sessions(){try{return new JSONArray(sp().getString(SES,"[]"));}catch(Exception e){return new JSONArray();}}void saveSessionSummary(){try{JSONArray a=sessions();JSONObject o=new JSONObject();o.put("date",new SimpleDateFormat("dd/MM/yyyy HH:mm",Locale.getDefault()).format(new Date()));o.put("brand",brand);o.put("car",car);o.put("carId",carId());o.put("track",track);o.put("trackId",trackId());o.put("config",config);o.put("position",position);o.put("laps",laps.size());o.put("lapTimes",lapTimes());o.put("best",bestSession());o.put("total",fmt(total()));o.put("maxSpeedSession",Math.round(maxSpeed));o.put("weather",weather());o.put("trackWetness",wet());a.put(o);sp().edit().putString(SES,a.toString()).apply();}catch(Exception e){}}
- String summary(JSONObject o){String nl=System.lineSeparator();StringBuilder sb=new StringBuilder();sb.append("Resumo da Seção").append(nl).append(nl);sb.append("Marca - ").append(o.optString("brand","--")).append(nl).append(nl);sb.append("Carro - ").append(o.optString("car","--")).append(nl);sb.append("ID do Carro - ").append(o.optString("carId","--")).append(nl).append(nl);sb.append("Pista - ").append(o.optString("track","--")).append(nl);sb.append("ID da Pista - ").append(o.optString("trackId","--")).append(nl).append(nl);sb.append("Pneus / Configuração - ").append(o.optString("config","--")).append(nl).append(nl);JSONArray a=o.optJSONArray("lapTimes");if(a!=null&&a.length()>0){for(int i=0;i<a.length();i++)sb.append("Volta ").append(i+1).append(" - ").append(a.optString(i,"--")).append(nl);}else sb.append("Volta 1 - --").append(nl);sb.append(nl);sb.append("Melhor Volta - ").append(o.optString("best","--")).append(nl);sb.append("Tempo Total - ").append(o.optString("total","--")).append(nl);sb.append("Max Session - ").append(o.optString("maxSpeedSession","--")).append(" km/h").append(nl);sb.append("Clima - ").append(o.optString("weather","--")).append(nl);sb.append("Pista Molhada - ").append(o.optString("trackWetness","--"));return sb.toString();}
- void showSession(final JSONObject o){LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(22,12,22,8);TextView tv=new TextView(this);tv.setText(summary(o));tv.setTextSize(18);tv.setTextColor(Color.rgb(25,25,25));tv.setLineSpacing(4,1.08f);Button copy=new Button(this);copy.setText("COPIAR");box.addView(tv,new LinearLayout.LayoutParams(-1,-2));box.addView(copy,new LinearLayout.LayoutParams(-1,-2));final AlertDialog d=new AlertDialog.Builder(this).setTitle("Resumo da seção").setView(box).setPositiveButton("Fechar",null).create();copy.setOnClickListener(new View.OnClickListener(){public void onClick(View x){((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Resumo GT7",summary(o)));Toast.makeText(MainActivity.this,"Resumo copiado",0).show();}});d.show();}
- void startSession(){resetSession();setActive(true);float f=fuel();if(!Float.isNaN(f)){fuelStart=f;fuelLast=f;}String l=lap();lastLap=l.equals("--")?"":l;Toast.makeText(this,"Seção iniciada",0).show();v.invalidate();}void finishSession(){if(!active()){Toast.makeText(this,"Nenhuma seção ativa",0).show();return;}calc();saveSessionSummary();setActive(false);resetSession();Toast.makeText(this,"Seção finalizada e salva",0).show();v.invalidate();}void resetSession(){maxSpeed=0;fuelStart=Float.NaN;fuelLast=Float.NaN;fuelPerLap=Float.NaN;laps.clear();lastLap="";}boolean connected(){return System.currentTimeMillis()-lastPacket<2600;}int age(){return lastPacket==0?0:(int)((System.currentTimeMillis()-lastPacket)/1000);}String host(){try{URL u=new URL(url);return u.getHost()+":"+(u.getPort()==-1?80:u.getPort());}catch(Exception e){return url;}}
- void edit(final String k,String title,String cur){final AutoCompleteTextView in=new AutoCompleteTextView(this);in.setSingleLine(true);in.setThreshold(1);in.setText(cur);String[] db=dbFor(k);if(db.length>0)in.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_dropdown_item_1line,db));new AlertDialog.Builder(this).setTitle(title).setView(in).setPositiveButton("Salvar",new android.content.DialogInterface.OnClickListener(){public void onClick(android.content.DialogInterface d,int w){String s=in.getText().toString().trim();if(s.length()>0){if(k.equals(URL))s=fix(s);sp().edit().putString(k,s).apply();load();v.invalidate();}}}).setNegativeButton("Cancelar",null).show();in.requestFocus();in.postDelayed(new Runnable(){public void run(){in.showDropDown();}},250);}void chooseMaxLaps(){final String[] o={"10","20","30","50","100"};new AlertDialog.Builder(this).setTitle("Máximo de voltas").setItems(o,new android.content.DialogInterface.OnClickListener(){public void onClick(android.content.DialogInterface d,int w){sp().edit().putInt(ML,Integer.parseInt(o[w])).apply();v.invalidate();}}).show();}
- String[] dbFor(String k){if(k.equals(BR))return new String[]{"Ferrari","Porsche","Mazda","Nissan","Toyota","Honda","BMW","Mercedes-Benz","Audi","Chevrolet","Ford","Lamborghini","Jaguar","McLaren","Subaru","Lexus"};if(k.equals(CFG))return new String[]{"Comfort Hard","Comfort Medium","Comfort Soft","Sports Hard","Sports Medium","Sports Soft","Racing Hard","Racing Medium","Racing Soft","Intermediate","Heavy Wet","800 Race","700 Race","900 Race"};if(k.equals(CAR))return new String[]{"Ferrari F40 '92","Mazda 787B '91","Porsche 962 C '88","Nissan R92CP '92","Mercedes-Benz Sauber Mercedes C9 '89","Jaguar XJR-9 '88","Toyota TS050 Hybrid '16","Chevrolet Corvette C7 Gr.3","Honda NSX Gr.3","BMW Z4 GT3 '11","Dodge SRT Tomahawk X Vision Gran Turismo"};if(k.equals(TR))return new String[]{"Circuit de la Sarthe","Circuit de Spa-Francorchamps","Nurburgring Nordschleife","Sardegna - Road Track - A","Tokyo Expressway - East Clockwise","Monza Circuit","Suzuka Circuit","Fuji International Speedway","Daytona Road Course","Watkins Glen International Long Course","WeatherTech Raceway Laguna Seca","Trial Mountain Circuit","Deep Forest Raceway"};return new String[0];}void clear(){sp().edit().putString(SES,"[]").apply();v.invalidate();}
- class Dash extends View{Paint p=new Paint(1);RectF r=new RectF();ArrayList<Hit> hits=new ArrayList<>();float sc=1,scroll=0,lastY=0,down=0;boolean moved;int tab=0;int panel=Color.rgb(8,17,30),cyan=Color.rgb(0,210,255),green=Color.rgb(0,235,110),red=Color.rgb(255,60,70),gold=Color.rgb(255,180,45),muted=Color.rgb(120,135,155),txt=Color.rgb(245,250,255);
-  Dash(Context c){super(c);setLayerType(View.LAYER_TYPE_SOFTWARE,null);}protected void onDraw(Canvas c){sc=getWidth()/430f;c.save();c.scale(sc,sc);draw(c,430,getHeight()/sc);c.restore();postInvalidateDelayed(80);}void draw(Canvas c,float w,float hh){hits.clear();bg(c,w,hh);header(c,w);float nav=hh-70;c.save();c.clipRect(0,54,w,nav);c.translate(0,-scroll);if(tab==0)dashboard(c);else if(tab==1)sessions(c);else if(tab==2)settings(c);else raw(c);c.restore();nav(c,w,hh);}void bg(Canvas c,float w,float hh){p.setShader(new LinearGradient(0,0,0,hh,Color.rgb(1,4,9),Color.rgb(4,15,28),Shader.TileMode.CLAMP));p.setStyle(Paint.Style.FILL);c.drawRect(0,0,w,hh,p);p.setShader(null);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(Color.argb(22,0,210,255));for(int y=0;y<hh;y+=36)c.drawLine(0,y,w,y,p);glow(c,215,150,170,Color.argb(45,0,190,255));}void glow(Canvas c,float x,float y,float rr,int col){p.setShader(new RadialGradient(x,y,rr,col,Color.TRANSPARENT,Shader.TileMode.CLAMP));p.setStyle(Paint.Style.FILL);c.drawCircle(x,y,rr,p);p.setShader(null);}void header(Canvas c,float w){text(c,"GT7 REVOLUTION",14,30,17,Color.WHITE,1,Paint.Align.LEFT);text(c,VER,160,30,10,muted,1,Paint.Align.LEFT);int col=connected()?green:red;p.setStyle(Paint.Style.FILL);p.setColor(col);c.drawCircle(w-94,26,6,p);text(c,connected()?"RASPBERRY ONLINE":"OFFLINE",w-14,30,10,col,1,Paint.Align.RIGHT);}void dashboard(Canvas c){float y=66;status(c,1,8,y,130,64,"BRIDGE",host(),connected()?"ONLINE":"OFFLINE",connected()?green:red);status(c,2,150,y,130,64,"PS5",ps5,"IP",green);status(c,3,292,y,130,64,"PACOTE",lastPacket==0?"--":age()+"s",packets+" leituras",cyan);rpmBar(c,8,144,414,68);gearSpeed(c,8,222,414,112);float cy=348;card(c,4,8,cy,202,82,"MELHOR VOLTA",bestSession(),cyan);card(c,5,220,cy,202,82,"ÚLTIMA VOLTA",lap(),txt);cy+=92;card(c,6,8,cy,202,82,"TEMPO TOTAL",fmt(total()),gold);card(c,7,220,cy,202,82,"MAX SESSION",maxT()+" km/h",cyan);cy+=92;card(c,8,8,cy,202,82,"COMBUSTÍVEL",fuelT(),green);card(c,9,220,cy,202,82,"AUTONOMIA",autonomy()+" voltas",green);cy+=92;card(c,10,8,cy,202,82,"CLIMA",weather(),cyan);card(c,11,220,cy,202,82,"PISTA MOLHADA",wet(),gold);cy+=92;card(c,12,8,cy,202,82,"CARRO",car,txt);card(c,13,220,cy,202,82,"ID CARRO",carId(),muted);cy+=92;card(c,14,8,cy,202,82,"PISTA",track,txt);card(c,15,220,cy,202,82,"ID PISTA",trackId(),muted);cy+=92;card(c,16,8,cy,202,82,"PNEUS / CONFIG",config,gold);card(c,17,220,cy,202,82,"VOLTAS",laps.size()+" / "+maxLaps(),cyan);cy+=98;button(c,101,8,cy,202,58,"INICIAR SEÇÃO",active()?"gravando":"zerar e iniciar",active()?gold:green);button(c,102,220,cy,202,58,"FINALIZAR",active()?"salvar resumo":"parada",red);}void rpmBar(Canvas c,float x,float y,float w,float h){box(c,0,x,y,w,h);text(c,"RPM",x+14,y+24,10,muted,1,Paint.Align.LEFT);float rv=rpm(),act=Float.isNaN(rv)?0:Math.max(0,Math.min(1,rv/10000f)),bx=x+14,by=y+38,bw=w-28,bh=14;for(int i=0;i<28;i++){float t=i/27f;p.setStyle(Paint.Style.FILL);p.setColor(t>act?Color.rgb(30,42,55):(t<.55?green:(t<.75?gold:red)));r.set(bx+i*(bw/28f)+1,by,bx+(i+1)*(bw/28f)-2,by+bh);c.drawRoundRect(r,4,4,p);}}void gearSpeed(Canvas c,float x,float y,float w,float h){box(c,0,x,y,w,h);text(c,"MARCHA",x+24,y+28,11,muted,1,Paint.Align.LEFT);textG(c,gear(),x+70,y+82,50,cyan,Paint.Align.CENTER);textG(c,speedT(),x+w-100,y+72,44,txt,Paint.Align.RIGHT);text(c,"km/h",x+w-86,y+72,14,cyan,1,Paint.Align.LEFT);bar(c,x+18,y+96,w-36,6,Math.max(0,Math.min(1,speed()/360f)),cyan);}void sessions(Canvas c){float y=66;button(c,101,8,y,202,60,"INICIAR SEÇÃO",active()?"gravando":"zerar e iniciar",active()?gold:green);button(c,102,220,y,202,60,"FINALIZAR SEÇÃO","salvar resumo",red);y+=76;JSONArray a=sessions();try{for(int i=a.length()-1;i>=0;i--){JSONObject o=a.getJSONObject(i);box(c,3000+i,8,y,414,112);hits.add(new Hit(3000+i,new RectF(8,y,422,y+112),"session"));text(c,o.optString("date","--"),22,y+24,12,muted,1,Paint.Align.LEFT);text(c,o.optString("total","--"),408,y+24,14,cyan,1,Paint.Align.RIGHT);text(c,o.optString("brand","--")+" · "+o.optString("car","--"),22,y+48,12,txt,1,Paint.Align.LEFT);text(c,o.optString("track","--"),22,y+70,10,muted,0,Paint.Align.LEFT);text(c,"Voltas "+o.optString("laps","--")+" · Best "+o.optString("best","--")+" · Max "+o.optString("maxSpeedSession","--")+" km/h",22,y+94,10,gold,1,Paint.Align.LEFT);y+=122;}}catch(Exception e){}}void settings(Canvas c){float y=66;setting(c,201,y,"Bridge URL",url);y+=72;setting(c,202,y,"PS5 IP",ps5);y+=72;setting(c,203,y,"Marca",brand);y+=72;setting(c,204,y,"Carro",car);y+=72;setting(c,205,y,"Pista",track);y+=72;setting(c,206,y,"Pneus / Configuração",config);y+=72;setting(c,207,y,"Posição",position);y+=72;button(c,208,8,y,414,60,"MÁXIMO DE VOLTAS",String.valueOf(maxLaps()),cyan);y+=72;button(c,209,8,y,414,60,"APAGAR SESSÕES","limpar histórico",red);}void raw(Canvas c){float y=66;TreeMap<String,String> m=new TreeMap<>(last);for(String k:m.keySet()){box(c,0,8,y,414,42);text(c,k,22,y+17,9,muted,0,Paint.Align.LEFT);text(c,m.get(k),408,y+28,10,txt,1,Paint.Align.RIGHT);y+=48;}}void status(Canvas c,int id,float x,float y,float w,float h,String a,String b,String s,int col){box(c,id,x,y,w,h);text(c,a,x+10,y+20,9,muted,1,Paint.Align.LEFT);text(c,b,x+10,y+42,11,cyan,1,Paint.Align.LEFT);text(c,s,x+10,y+58,8,col,1,Paint.Align.LEFT);}void card(Canvas c,int id,float x,float y,float w,float h,String a,String b,int col){box(c,id,x,y,w,h);text(c,a,x+12,y+24,10,muted,1,Paint.Align.LEFT);textG(c,b,x+12,y+56,17,col,Paint.Align.LEFT);}void button(Canvas c,int id,float x,float y,float w,float h,String a,String b,int col){box(c,id,x,y,w,h);hits.add(new Hit(id,new RectF(x,y,x+w,y+h),"action"));text(c,a,x+14,y+25,12,col,1,Paint.Align.LEFT);text(c,b,x+14,y+45,9,muted,0,Paint.Align.LEFT);}void setting(Canvas c,int id,float y,String a,String b){box(c,id,8,y,414,62);hits.add(new Hit(id,new RectF(8,y,422,y+62),"action"));text(c,a,22,y+22,10,muted,1,Paint.Align.LEFT);text(c,b,22,y+44,13,txt,1,Paint.Align.LEFT);}void box(Canvas c,int id,float x,float y,float w,float h){r.set(x,y,x+w,y+h);p.setStyle(Paint.Style.FILL);p.setColor(panel);c.drawRoundRect(r,14,14,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(Color.argb(170,0,150,210));c.drawRoundRect(r,14,14,p);}void bar(Canvas c,float x,float y,float w,float h,float pr,int col){p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(25,35,45));r.set(x,y,x+w,y+h);c.drawRoundRect(r,h/2,h/2,p);p.setColor(col);r.set(x,y,x+w*Math.max(0,Math.min(1,pr)),y+h);c.drawRoundRect(r,h/2,h/2,p);}void nav(Canvas c,float w,float h){float y=h-70;p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(3,8,15));c.drawRect(0,y,w,h,p);navI(c,0,54,y,"DASH");navI(c,1,161,y,"SESSÕES");navI(c,2,268,y,"SETTINGS");navI(c,3,374,y,"RAW");}void navI(Canvas c,int id,float x,float y,String lab){boolean s=tab==id;if(s)box(c,0,x-50,y+9,100,52);text(c,lab,x,y+40,9,s?cyan:muted,1,Paint.Align.CENTER);}void text(Canvas c,String s,float x,float y,float z,int col,int bold,Paint.Align al){p.setShader(null);p.setStyle(Paint.Style.FILL);p.setColor(col);p.setTextSize(z);p.setTextAlign(al);p.setTypeface(bold==1?Typeface.DEFAULT_BOLD:Typeface.DEFAULT);c.drawText(s==null?"--":s,x,y,p);}void textG(Canvas c,String s,float x,float y,float z,int col,Paint.Align al){text(c,s,x,y,z,col,1,al);}public boolean onTouchEvent(MotionEvent e){full();float x=e.getX()/sc,y=e.getY()/sc,h=getHeight()/sc,ny=h-70;if(e.getAction()==0){down=y;lastY=y;moved=false;return true;}if(e.getAction()==2){float dy=y-lastY;if(Math.abs(y-down)>5)moved=true;if(y>54&&y<ny){scroll=Math.max(0,scroll-dy);invalidate();}lastY=y;return true;}if(e.getAction()==1){if(y>ny){tab=x<107?0:(x<214?1:(x<322?2:3));scroll=0;invalidate();return true;}if(!moved){float yy=y+scroll;for(Hit it:hits)if(it.r.contains(x,yy)){handle(it);return true;}}}return true;}void handle(Hit it){if(it.t.equals("session")){try{showSession(sessions().getJSONObject(it.id-3000));}catch(Exception e){}return;}if(it.id==101)startSession();else if(it.id==102)finishSession();else if(it.id==201)edit(URL,"Bridge URL",url);else if(it.id==202)edit(PS5,"PS5 IP",ps5);else if(it.id==203)edit(BR,"Marca",brand);else if(it.id==204)edit(CAR,"Carro",car);else if(it.id==205)edit(TR,"Pista",track);else if(it.id==206)edit(CFG,"Pneus / Configuração",config);else if(it.id==207)edit(POS,"Posição",position);else if(it.id==208)chooseMaxLaps();else if(it.id==209)clear();invalidate();}}
- static class Hit{int id;RectF r;String t;Hit(int a,RectF b,String c){id=a;r=b;t=c;}}
+public class MainActivity extends Activity {
+    static final String PREF = "gt7_revolution_safe";
+    static final String DEF_BRIDGE = "http://192.168.1.70:8787";
+    static final String DEF_PS5 = "192.168.1.54";
+
+    final Handler handler = new Handler(Looper.getMainLooper());
+    final Map<String, String> fields = new HashMap<>();
+    final java.util.ArrayList<Long> laps = new java.util.ArrayList<>();
+
+    LinearLayout root;
+    TextView status, rpm, gear, speed, bestLap, lastLap, totalTime, maxSpeedView, fuel, autonomy, weather, wet, car, carId, track, trackId, lapCount;
+    String bridgeUrl = DEF_BRIDGE, ps5Ip = DEF_PS5, brand = "--", carName = "--", trackName = "--", config = "--", position = "--", lastLapText = "";
+    float maxSpeed = 0f, fuelStart = Float.NaN, fuelLast = Float.NaN, fuelPerLap = Float.NaN;
+    long lastPacket = 0;
+    boolean sessionActive = false;
+
+    final Runnable poller = new Runnable() {
+        @Override public void run() {
+            pollBridge();
+            handler.postDelayed(this, 1000);
+        }
+    };
+
+    @Override public void onCreate(Bundle b) {
+        super.onCreate(b);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        load();
+        buildUi();
+        handler.post(poller);
+    }
+
+    @Override protected void onDestroy() {
+        handler.removeCallbacks(poller);
+        super.onDestroy();
+    }
+
+    void load() {
+        SharedPreferences sp = getSharedPreferences(PREF, MODE_PRIVATE);
+        bridgeUrl = sp.getString("bridge", DEF_BRIDGE);
+        ps5Ip = sp.getString("ps5", DEF_PS5);
+        brand = sp.getString("brand", "--");
+        carName = sp.getString("car", "--");
+        trackName = sp.getString("track", "--");
+        config = sp.getString("config", "--");
+        position = sp.getString("position", "--");
+        sessionActive = sp.getBoolean("active", false);
+    }
+
+    void saveSetting(String k, String v) {
+        getSharedPreferences(PREF, MODE_PRIVATE).edit().putString(k, v).apply();
+        load();
+        updateUi();
+    }
+
+    int maxLaps() {
+        return getSharedPreferences(PREF, MODE_PRIVATE).getInt("maxLaps", 30);
+    }
+
+    void setMaxLaps(int n) {
+        getSharedPreferences(PREF, MODE_PRIVATE).edit().putInt("maxLaps", n).apply();
+        updateUi();
+    }
+
+    void buildUi() {
+        ScrollView scroll = new ScrollView(this);
+        root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(18, 18, 18, 18);
+        root.setBackgroundColor(Color.rgb(2, 8, 16));
+        scroll.addView(root);
+        setContentView(scroll);
+
+        title("GT7 REVOLUTION MODULAR");
+        status = card("RASPBERRY", "Conectando...");
+        rpm = card("RPM", "--");
+        gear = card("MARCHA", "--");
+        speed = card("VELOCIDADE", "-- km/h");
+        bestLap = card("MELHOR VOLTA", "--");
+        lastLap = card("ÚLTIMA VOLTA", "--");
+        totalTime = card("TEMPO TOTAL", "--");
+        maxSpeedView = card("MAX SESSION", "-- km/h");
+        fuel = card("COMBUSTÍVEL", "--");
+        autonomy = card("AUTONOMIA", "-- voltas");
+        weather = card("CLIMA", "--");
+        wet = card("PISTA MOLHADA", "--");
+        car = card("CARRO", "--");
+        carId = card("ID DO CARRO", "--");
+        track = card("PISTA", "--");
+        trackId = card("ID DA PISTA", "--");
+        lapCount = card("VOLTAS", "0 / 30");
+
+        row(button("INICIAR SEÇÃO", new View.OnClickListener(){ public void onClick(View v){ startSession(); }}),
+            button("FINALIZAR SEÇÃO", new View.OnClickListener(){ public void onClick(View v){ finishSession(); }}));
+
+        row(button("SETTINGS", new View.OnClickListener(){ public void onClick(View v){ showSettings(); }}),
+            button("SESSÕES", new View.OnClickListener(){ public void onClick(View v){ showSessions(); }}));
+
+        updateUi();
+    }
+
+    void title(String s) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTextColor(Color.WHITE);
+        t.setTextSize(22);
+        t.setPadding(4, 6, 4, 16);
+        t.setTypeface(null, 1);
+        root.addView(t);
+    }
+
+    TextView card(String label, String value) {
+        TextView t = new TextView(this);
+        t.setText(label + "\n" + value);
+        t.setTextColor(Color.rgb(235, 250, 255));
+        t.setTextSize(18);
+        t.setPadding(18, 16, 18, 16);
+        t.setBackgroundColor(Color.rgb(8, 22, 38));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.setMargins(0, 0, 0, 12);
+        root.addView(t, lp);
+        return t;
+    }
+
+    Button button(String s, View.OnClickListener l) {
+        Button b = new Button(this);
+        b.setText(s);
+        b.setOnClickListener(l);
+        return b;
+    }
+
+    void row(View a, View b) {
+        LinearLayout r = new LinearLayout(this);
+        r.setOrientation(LinearLayout.HORIZONTAL);
+        r.addView(a, new LinearLayout.LayoutParams(0, -2, 1));
+        r.addView(b, new LinearLayout.LayoutParams(0, -2, 1));
+        root.addView(r);
+    }
+
+    void pollBridge() {
+        new Thread(new Runnable() {
+            @Override public void run() {
+                boolean ok = false;
+                try {
+                    String body = http(fixUrl(bridgeUrl) + "/api/fields");
+                    if (!valid(body)) body = http(fixUrl(bridgeUrl) + "/api/telemetry");
+                    Map<String,String> parsed = parseJson(body);
+                    if (!parsed.isEmpty()) {
+                        fields.clear();
+                        fields.putAll(parsed);
+                        lastPacket = System.currentTimeMillis();
+                        calculateSession();
+                        ok = true;
+                    }
+                } catch (Exception ignored) { }
+                final boolean connected = ok || System.currentTimeMillis() - lastPacket < 3500;
+                handler.post(new Runnable() { @Override public void run() { updateUi(connected); } });
+            }
+        }).start();
+    }
+
+    String http(String u) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+        c.setConnectTimeout(900);
+        c.setReadTimeout(900);
+        BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) sb.append(line);
+        br.close();
+        c.disconnect();
+        return sb.toString();
+    }
+
+    Map<String,String> parseJson(String body) throws Exception {
+        Map<String,String> out = new HashMap<>();
+        if (!valid(body)) return out;
+        Object obj = new JSONTokener(body.trim()).nextValue();
+        flatten(out, "", obj);
+        return out;
+    }
+
+    void flatten(Map<String,String> out, String prefix, Object obj) throws Exception {
+        if (obj instanceof JSONObject) {
+            JSONObject jo = (JSONObject)obj;
+            Iterator<String> it = jo.keys();
+            while (it.hasNext()) {
+                String k = it.next();
+                Object v = jo.get(k);
+                String p = prefix.length() == 0 ? k : prefix + "." + k;
+                flatten(out, p, v);
+                if (v instanceof JSONObject && (k.equals("fields") || k.equals("telemetry") || k.equals("car") || k.equals("session"))) flatten(out, "", v);
+            }
+        } else {
+            out.put(prefix, String.valueOf(obj));
+        }
+    }
+
+    String val(String... keys) {
+        for (String k: keys) if (fields.containsKey(k) && valid(fields.get(k))) return fields.get(k);
+        return "--";
+    }
+
+    float num(String... keys) {
+        try { return Float.parseFloat(val(keys).replace("%", "").replace(',', '.')); } catch(Exception e) { return Float.NaN; }
+    }
+
+    boolean valid(String s) { return s != null && s.trim().length() > 0 && !s.equals("--") && !s.equalsIgnoreCase("null"); }
+    String fixUrl(String u) { if (!u.startsWith("http")) return "http://" + u; return u.endsWith("/") ? u.substring(0, u.length()-1) : u; }
+
+    void calculateSession() {
+        float spd = num("speed_kmh", "speedKmh", "speed", "velocityKmh");
+        if (!Float.isNaN(spd) && spd > maxSpeed) maxSpeed = spd;
+        String lap = val("lastLap", "lastLaptime", "last_lap", "ultimaVolta");
+        if (sessionActive && valid(lap) && !lap.equals(lastLapText) && laps.size() < maxLaps()) {
+            long ms = parseTime(lap);
+            if (ms > 0) laps.add(ms);
+            lastLapText = lap;
+        }
+        float f = num("fuelPercent", "fuel_percent", "fuel");
+        if (sessionActive && !Float.isNaN(f)) {
+            if (Float.isNaN(fuelStart)) fuelStart = f;
+            fuelLast = f;
+            float used = fuelStart - fuelLast;
+            if (used > 0.05f && laps.size() > 0) fuelPerLap = used / laps.size();
+        }
+    }
+
+    void updateUi() { updateUi(System.currentTimeMillis() - lastPacket < 3500); }
+    void updateUi(boolean connected) {
+        set(status, "RASPBERRY", connected ? "ONLINE · " + fixUrl(bridgeUrl) : "OFFLINE · " + fixUrl(bridgeUrl));
+        set(rpm, "RPM", val("rpm", "engine_rpm", "engineRPM"));
+        set(gear, "MARCHA", val("gear", "marcha", "currentGear"));
+        set(speed, "VELOCIDADE", round(num("speed_kmh", "speedKmh", "speed", "velocityKmh")) + " km/h");
+        set(bestLap, "MELHOR VOLTA", val("bestLap", "bestLaptime", "best_lap", "melhorVolta"));
+        set(lastLap, "ÚLTIMA VOLTA", val("lastLap", "lastLaptime", "last_lap", "ultimaVolta"));
+        set(totalTime, "TEMPO TOTAL", format(totalMs()));
+        set(maxSpeedView, "MAX SESSION", round(maxSpeed) + " km/h");
+        set(fuel, "COMBUSTÍVEL", val("fuelPercent", "fuel_percent", "fuel") + "%");
+        set(autonomy, "AUTONOMIA", autonomyText());
+        set(weather, "CLIMA", weatherText());
+        set(wet, "PISTA MOLHADA", wetText());
+        set(car, "CARRO", carName);
+        set(carId, "ID DO CARRO", slug(carName));
+        set(track, "PISTA", trackName);
+        set(trackId, "ID DA PISTA", slug(trackName));
+        set(lapCount, "VOLTAS", laps.size() + " / " + maxLaps());
+    }
+
+    void set(TextView t, String label, String value) { t.setText(label + "\n" + (valid(value) ? value : "--")); }
+    String round(float f) { return Float.isNaN(f) ? "--" : String.valueOf(Math.round(f)); }
+    String weatherText() { String w = val("weather", "clima", "condition", "rainIntensity"); return valid(w) ? w : "--"; }
+    String wetText() { float w = num("trackWetness", "track_wetness", "surfaceWater", "waterOnTrack"); if (Float.isNaN(w)) return "--"; if (w <= 1f) w *= 100f; return Math.round(w) + "%"; }
+    String autonomyText() { if (Float.isNaN(fuelLast) || Float.isNaN(fuelPerLap) || fuelPerLap <= 0) return "-- voltas"; return String.format(Locale.US, "%.1f voltas", fuelLast / fuelPerLap); }
+
+    void startSession() {
+        laps.clear(); maxSpeed = 0; fuelStart = Float.NaN; fuelLast = Float.NaN; fuelPerLap = Float.NaN; lastLapText = ""; sessionActive = true;
+        getSharedPreferences(PREF, MODE_PRIVATE).edit().putBoolean("active", true).apply();
+        Toast.makeText(this, "Seção iniciada", Toast.LENGTH_SHORT).show(); updateUi();
+    }
+
+    void finishSession() {
+        sessionActive = false;
+        getSharedPreferences(PREF, MODE_PRIVATE).edit().putBoolean("active", false).apply();
+        saveSession();
+        Toast.makeText(this, "Seção salva", Toast.LENGTH_SHORT).show(); updateUi();
+    }
+
+    void saveSession() {
+        try {
+            SharedPreferences sp = getSharedPreferences(PREF, MODE_PRIVATE);
+            JSONArray arr = new JSONArray(sp.getString("sessions", "[]"));
+            JSONObject o = new JSONObject();
+            o.put("date", new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(new Date()));
+            o.put("brand", brand); o.put("car", carName); o.put("carId", slug(carName));
+            o.put("track", trackName); o.put("trackId", slug(trackName)); o.put("config", config);
+            JSONArray l = new JSONArray(); for (Long ms: laps) l.put(format(ms)); o.put("lapTimes", l);
+            o.put("laps", laps.size()); o.put("best", bestSession()); o.put("total", format(totalMs())); o.put("maxSpeedSession", round(maxSpeed));
+            o.put("weather", weatherText()); o.put("trackWetness", wetText()); arr.put(o);
+            sp.edit().putString("sessions", arr.toString()).apply();
+        } catch(Exception ignored) { }
+    }
+
+    void showSessions() {
+        try {
+            JSONArray arr = new JSONArray(getSharedPreferences(PREF, MODE_PRIVATE).getString("sessions", "[]"));
+            StringBuilder sb = new StringBuilder();
+            for (int i = arr.length() - 1; i >= 0; i--) sb.append(summary(arr.getJSONObject(i))).append("\n\n────────────\n\n");
+            final String text = sb.length() == 0 ? "Nenhuma sessão salva" : sb.toString();
+            new AlertDialog.Builder(this).setTitle("Sessões").setMessage(text).setPositiveButton("Copiar", (d,w) -> copy(text)).setNegativeButton("Fechar", null).show();
+        } catch(Exception e) { Toast.makeText(this, "Erro ao abrir sessões", Toast.LENGTH_SHORT).show(); }
+    }
+
+    String summary(JSONObject o) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Resumo da Seção\n\n");
+        sb.append("Marca - ").append(o.optString("brand", "--")).append("\n\n");
+        sb.append("Carro - ").append(o.optString("car", "--")).append("\n");
+        sb.append("ID do Carro - ").append(o.optString("carId", "--")).append("\n\n");
+        sb.append("Pista - ").append(o.optString("track", "--")).append("\n");
+        sb.append("ID da Pista - ").append(o.optString("trackId", "--")).append("\n\n");
+        sb.append("Pneus / Configuração - ").append(o.optString("config", "--")).append("\n\n");
+        JSONArray a = o.optJSONArray("lapTimes");
+        if (a != null && a.length() > 0) for (int i=0;i<a.length();i++) sb.append("Volta ").append(i+1).append(" - ").append(a.optString(i,"--")).append("\n");
+        else sb.append("Volta 1 - --\n");
+        sb.append("\nMelhor Volta - ").append(o.optString("best", "--"));
+        sb.append("\nTempo Total - ").append(o.optString("total", "--"));
+        sb.append("\nMax Session - ").append(o.optString("maxSpeedSession", "--")).append(" km/h");
+        sb.append("\nClima - ").append(o.optString("weather", "--"));
+        sb.append("\nPista Molhada - ").append(o.optString("trackWetness", "--"));
+        return sb.toString();
+    }
+
+    void copy(String text) { ((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("GT7", text)); }
+
+    void showSettings() {
+        final String[] opts = {"Bridge URL", "PS5 IP", "Marca", "Carro", "Pista", "Pneus / Configuração", "Máximo de Voltas"};
+        new AlertDialog.Builder(this).setTitle("Settings").setItems(opts, (d, which) -> {
+            if (which == 0) edit("bridge", "Bridge URL", bridgeUrl, new String[]{DEF_BRIDGE});
+            else if (which == 1) edit("ps5", "PS5 IP", ps5Ip, new String[]{DEF_PS5});
+            else if (which == 2) edit("brand", "Marca", brand, new String[]{"Ferrari","Mazda","Porsche","Nissan","Toyota","Honda","BMW","Mercedes-Benz"});
+            else if (which == 3) edit("car", "Carro", carName, new String[]{"Ferrari F40 '92","Mazda 787B '91","Porsche 962 C '88","Nissan R92CP '92"});
+            else if (which == 4) edit("track", "Pista", trackName, new String[]{"Circuit de la Sarthe","Sardegna - Road Track - A","Circuit de Spa-Francorchamps","Nurburgring Nordschleife"});
+            else if (which == 5) edit("config", "Pneus / Configuração", config, new String[]{"Racing Hard","Racing Medium","Racing Soft","800 Race"});
+            else chooseMaxLaps();
+        }).show();
+    }
+
+    void edit(final String key, String title, String current, String[] suggestions) {
+        final AutoCompleteTextView input = new AutoCompleteTextView(this);
+        input.setSingleLine(true); input.setText(current); input.setThreshold(1);
+        input.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_dropdown_item_1line, suggestions));
+        new AlertDialog.Builder(this).setTitle(title).setView(input).setPositiveButton("Salvar", (d,w) -> saveSetting(key, input.getText().toString().trim())).setNegativeButton("Cancelar", null).show();
+    }
+
+    void chooseMaxLaps() {
+        final String[] opts = {"10", "20", "30", "50", "100"};
+        new AlertDialog.Builder(this).setTitle("Máximo de voltas").setItems(opts, (d,w) -> setMaxLaps(Integer.parseInt(opts[w]))).show();
+    }
+
+    long parseTime(String s) {
+        try {
+            String x = s.trim().replace(',', '.');
+            String[] p = x.split(":");
+            float sec = Float.parseFloat(p[p.length-1]);
+            long min = p.length >= 2 ? Long.parseLong(p[p.length-2]) : 0;
+            long hour = p.length >= 3 ? Long.parseLong(p[p.length-3]) : 0;
+            return hour*3600000L + min*60000L + Math.round(sec*1000f);
+        } catch(Exception e) { return 0; }
+    }
+
+    long totalMs() { long t = 0; for (Long l: laps) t += l; return t; }
+    String bestSession() { long b = 0; for (Long l: laps) if (b == 0 || l < b) b = l; return b == 0 ? val("bestLap", "bestLaptime", "best_lap") : format(b); }
+    String format(long ms) { if (ms <= 0) return "--:--.---"; long m = ms/60000; ms%=60000; long s=ms/1000; long z=ms%1000; return String.format(Locale.US, "%02d:%02d.%03d", m, s, z); }
+    String slug(String s) { if (!valid(s)) return "--"; return s.toLowerCase(Locale.US).replace("'", "").replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", ""); }
 }
