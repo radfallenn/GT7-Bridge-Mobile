@@ -1,9 +1,10 @@
 {
-  "project": "GT7 Telemetria",
-  "version": "v1.58",
-  "date": "04/06/26 as 11:56",
+  "project": "GT7 Bridge Mobile / Revolution GT7",
+  "version": "v1.5.7",
+  "date": "12/06/26",
   "webDir": "www",
-  "entry": "www/index.html",
-  "appId": "com.studiorad.gt7online",
-  "build": "GitHub Actions + Capacitor Android"
+  "entry": "app/src/main/java/com/gt7/bridge/mobile/MainActivity.java",
+  "appId": "com.gt7.bridge.mobile",
+  "build": "GitHub Actions + Android Native",
+  "update": "Dashboard visual Revolution GT7 com telemetria real, checks por card, histórico, sessão e proteção anti-null/NaN"
 }
