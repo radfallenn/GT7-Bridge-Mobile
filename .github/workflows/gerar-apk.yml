@@ -7,6 +7,12 @@ on:
       - main
     paths:
       - 'app/**'
+      - 'android/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'settings.gradle'
+      - 'build.gradle'
       - '.github/workflows/gerar-apk.yml'
 
 jobs:
@@ -31,8 +37,16 @@ jobs:
           unzip -q gradle-8.9-bin.zip
           echo "$PWD/gradle-8.9/bin" >> "$GITHUB_PATH"
 
+      - name: Corrigir Gradle Wrapper
+        run: |
+          gradle wrapper --gradle-version 8.9 --distribution-type bin --no-daemon
+          chmod +x ./gradlew
+          test -s gradle/wrapper/gradle-wrapper.jar
+          jar tf gradle/wrapper/gradle-wrapper.jar >/dev/null
+          ./gradlew --version --no-daemon
+
       - name: Gerar APK Debug
-        run: gradle clean :app:assembleDebug --stacktrace --no-daemon
+        run: ./gradlew clean :app:assembleDebug --stacktrace --no-daemon
 
       - name: Preparar APK
         run: |
