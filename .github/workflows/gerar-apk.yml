@@ -45,6 +45,19 @@ jobs:
           jar tf gradle/wrapper/gradle-wrapper.jar >/dev/null
           ./gradlew --version --no-daemon
 
+      - name: Corrigir MainActivity Java
+        run: |
+          MAIN="app/src/main/java/com/gt7/bridge/mobile/MainActivity.java"
+          test -f "$MAIN"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app/src/main/java/com/gt7/bridge/mobile/MainActivity.java')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace(' void finish(){active=false;', ' public void finish(){active=false;')
+          p.write_text(s, encoding='utf-8')
+          PY
+          grep -n "public void finish" "$MAIN"
+
       - name: Gerar APK Debug
         run: ./gradlew clean :app:assembleDebug --stacktrace --no-daemon
 
