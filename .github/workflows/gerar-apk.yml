@@ -45,7 +45,7 @@ jobs:
           jar tf gradle/wrapper/gradle-wrapper.jar >/dev/null
           ./gradlew --version --no-daemon
 
-      - name: Corrigir MainActivity Java
+      - name: Aplicar visual da referencia
         run: |
           MAIN="app/src/main/java/com/gt7/bridge/mobile/MainActivity.java"
           test -f "$MAIN"
@@ -53,9 +53,29 @@ jobs:
           from pathlib import Path
           p = Path('app/src/main/java/com/gt7/bridge/mobile/MainActivity.java')
           s = p.read_text(encoding='utf-8')
+
           s = s.replace(' void finish(){active=false;', ' public void finish(){active=false;')
+
+          old_dash = 'row(card("MELHOR VOLTA","best",green(),"◷"),card("ÚLTIMA VOLTA","last",blue(),"◷"));row(card("COMBUSTÍVEL","fuel",green(),"▯"),card("AUTONOMIA","aut",Color.WHITE,"⋮"));row(card("TEMPO TOTAL","total",yellow(),"◷"),card("MAX SESSION","max",red(),"◉"));row(card("CLIMA","weather",Color.WHITE,"☁"),card("PISTA MOLHADA","wet",blue(),"◆"));'
+          new_dash = 'row4(card("MELHOR VOLTA","best",green(),"◷"),card("ÚLTIMA VOLTA","last",blue(),"◷"),card("COMBUSTÍVEL","fuel",green(),"▯"),card("AUTONOMIA","aut",Color.WHITE,"⋮"));row4(card("TEMPO TOTAL","total",yellow(),"◷"),card("MAX SESSION","max",red(),"◉"),card("CLIMA","weather",Color.WHITE,"☁"),card("PISTA MOLHADA","wet",blue(),"◆"));'
+          s = s.replace(old_dash, new_dash)
+
+          old_row = 'void row(View a,View b){LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(92),1);lp.setMargins(0,dp(5),dp(5),dp(5));LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(0,dp(92),1);rp.setMargins(dp(5),dp(5),0,dp(5));r.addView(a,lp);r.addView(b,rp);grid.addView(r);}'
+          new_row = old_row + ' void row4(View a,View b,View c,View d){LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.HORIZONTAL);View[] arr={a,b,c,d};for(int i=0;i<arr.length;i++){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(122),1);lp.setMargins(i==0?0:dp(4),dp(5),i==arr.length-1?0:dp(4),dp(5));r.addView(arr[i],lp);}grid.addView(r);}'
+          s = s.replace(old_row, new_row)
+
+          s = s.replace('void mainGauge(){LinearLayout box=vbox();box.setPadding(dp(16),dp(14),dp(16),dp(14));', 'void mainGauge(){LinearLayout box=vbox();box.setPadding(dp(16),dp(14),dp(16),dp(14));')
+          s = s.replace('root.addView(box,new LinearLayout.LayoutParams(-1,dp(260)));', 'root.addView(box,new LinearLayout.LayoutParams(-1,dp(278)));')
+          s = s.replace('TextView lab=tv(title,12,Color.WHITE,Typeface.BOLD);', 'TextView lab=tv(title,10,Color.WHITE,Typeface.BOLD);')
+          s = s.replace('TextView value=tv("--",24,color,Typeface.BOLD);', 'TextView value=tv("--",20,color,Typeface.BOLD);')
+          s = s.replace('c.setPadding(dp(12),dp(10),dp(12),dp(10));', 'c.setPadding(dp(9),dp(8),dp(8),dp(7));')
+          s = s.replace('root.addView(grid);', 'root.addView(grid,new LinearLayout.LayoutParams(-1,-2));')
+
+          if 'row4(' not in s:
+              raise SystemExit('Falha ao aplicar grade de 4 cards')
           p.write_text(s, encoding='utf-8')
           PY
+          grep -n "row4" "$MAIN"
           grep -n "public void finish" "$MAIN"
 
       - name: Gerar APK Debug
@@ -64,11 +84,11 @@ jobs:
       - name: Preparar APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v161.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/GT7-Bridge-Mobile-v162-reference.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GT7-Bridge-Mobile-APK-v161
-          path: dist/GT7-Bridge-Mobile-v161.apk
+          name: GT7-Bridge-Mobile-APK-v162-reference
+          path: dist/GT7-Bridge-Mobile-v162-reference.apk
           if-no-files-found: error
