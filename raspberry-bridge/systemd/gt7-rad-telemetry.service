@@ -1,0 +1,15 @@
+[Unit]
+Description=GT7 rAd Telemetry Bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/gt7-rad-telemetry
+Environment=PS5_IP=192.168.1.70
+ExecStart=/opt/gt7-rad-telemetry/.venv/bin/python -m uvicorn bridge.main:app --host 0.0.0.0 --port 8787
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
